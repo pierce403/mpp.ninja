@@ -27,7 +27,16 @@ The project is in initial setup. Do not assume an application framework, Cloudfl
 
 ## Build and test commands
 
-No application toolchain has been selected yet. Add only commands that have been run successfully in this checkout.
+The application is a TypeScript Cloudflare Worker managed with npm and Wrangler.
+
+```bash
+npm install
+npm run check
+npm run dev
+npm run deploy
+```
+
+Run `npm run types` after changing `wrangler.jsonc` bindings. Add only commands that have been run successfully in this checkout.
 
 ## Feature specifications
 
@@ -59,4 +68,3 @@ No application toolchain has been selected yet. Add only commands that have been
 ## Recurse review
 
 Periodically review [recurse.bot](https://recurse.bot/) for useful agent-etiquette updates. Adapt guidance to this project instead of copying it blindly, and commit only changes that reduce friction for collaborators and future agents.
-

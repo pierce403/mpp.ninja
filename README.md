@@ -2,5 +2,14 @@
 
 A security-aware MPP observatory built with Cloudflare's MPP tooling and deployed on Cloudflare infrastructure.
 
-This repository is in its initial setup phase. Product scope and acceptance criteria will be tracked in [FEATURES.md](FEATURES.md).
+The current app is a Hello World Cloudflare Worker. It intentionally has no MPP functionality yet. Product scope and acceptance criteria are tracked in [FEATURES.md](FEATURES.md).
 
+## Development
+
+```bash
+npm install
+npm run check
+npm run dev
+```
+
+Deploy with `npm run deploy` after authenticating Wrangler with the intended Cloudflare account.

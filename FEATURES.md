@@ -32,3 +32,31 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 - Repository setup started on 2026-08-25.
 
+## Hello World deployment
+
+**Stability:** in-progress
+
+### Properties
+
+- Serves an HTML status page from a TypeScript Cloudflare Worker.
+- States clearly that MPP functionality is not enabled.
+- Supports `GET` and `HEAD` at `/`, returns `404` for other paths, and `405` for unsupported methods.
+- Sends baseline content, framing, MIME-sniffing, and referrer security headers.
+- Enables Cloudflare Workers observability without storing application data.
+
+### Dependencies
+
+- Cloudflare Workers
+- Wrangler
+
+### Test criteria
+
+- [ ] TypeScript and Worker-runtime tests pass.
+- [ ] Wrangler configuration and generated types are current.
+- [ ] A dry-run deployment succeeds.
+- [ ] The deployed Worker returns the expected page, status codes, and security headers.
+- [ ] The deployed version is tied to a known Git commit.
+
+### Evidence
+
+- Initial Worker scaffold added on 2026-08-25.

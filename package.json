@@ -1,0 +1,32 @@
+{
+  "name": "mpp.ninja",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "npm run types:check && npm run typecheck && npm test && npm run deploy:dry-run",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@cloudflare/vitest-pool-workers": "latest",
+    "@types/node": "latest",
+    "typescript": "~5.9.3",
+    "vitest": "latest",
+    "wrangler": "latest"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260815.1": true,
+    "workerd@1.20260820.1": true
+  }
+}
