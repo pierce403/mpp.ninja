@@ -4,6 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    {
+      "pattern": "mpp.ninja",
+      "custom_domain": true
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

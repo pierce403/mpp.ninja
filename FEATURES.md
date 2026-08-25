@@ -63,3 +63,31 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - `npm run check` passed on 2026-08-25, including generated-type verification, TypeScript, three Worker-runtime tests, and a Wrangler dry run.
 - Git commit `eba6fedf072aaa1bcb25b220224a1bb0efd13883` was pushed to GitHub and deployed as Cloudflare Worker version `4885040a-9061-4bba-ae75-1d0080546439`.
 - Live verification at `https://mpp-ninja.bcrt43.workers.dev/` returned the expected page and security headers; `HEAD /` returned `200`, `GET /mpp` returned `404`, and `POST /` returned `405` with `Allow: GET, HEAD`.
+
+## Apex custom domain
+
+**Stability:** in-progress
+
+### Properties
+
+- Serves the production Worker at `https://mpp.ninja`.
+- Uses a Cloudflare Workers Custom Domain managed through `wrangler.jsonc`.
+- Keeps the generated Cloudflare DNS record and certificate under Cloudflare management.
+
+### Dependencies
+
+- Active `mpp.ninja` zone in the deployment account
+- Cloudflare Workers Custom Domains
+- Valid HTTPS certificate for `mpp.ninja`
+
+### Test criteria
+
+- [ ] `mpp.ninja` resolves through Cloudflare DNS.
+- [ ] HTTPS certificate validation succeeds for `mpp.ninja`.
+- [ ] `GET https://mpp.ninja/` returns the expected Hello World page and security headers.
+- [ ] Custom-domain error and method behavior matches the verified `workers.dev` deployment.
+- [ ] The deployed custom-domain configuration is tied to a known Git commit.
+
+### Evidence
+
+- Before configuration on 2026-08-25, `mpp.ninja` returned NXDOMAIN.
