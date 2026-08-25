@@ -66,7 +66,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ## Apex custom domain
 
-**Stability:** in-progress
+**Stability:** stable
 
 ### Properties
 
@@ -82,12 +82,16 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ### Test criteria
 
-- [ ] `mpp.ninja` resolves through Cloudflare DNS.
-- [ ] HTTPS certificate validation succeeds for `mpp.ninja`.
-- [ ] `GET https://mpp.ninja/` returns the expected Hello World page and security headers.
-- [ ] Custom-domain error and method behavior matches the verified `workers.dev` deployment.
-- [ ] The deployed custom-domain configuration is tied to a known Git commit.
+- [x] `mpp.ninja` resolves through Cloudflare DNS.
+- [x] HTTPS certificate validation succeeds for `mpp.ninja`.
+- [x] `GET https://mpp.ninja/` returns the expected Hello World page and security headers.
+- [x] Custom-domain error and method behavior matches the verified `workers.dev` deployment.
+- [x] The deployed custom-domain configuration is tied to a known Git commit.
 
 ### Evidence
 
 - Before configuration on 2026-08-25, `mpp.ninja` returned NXDOMAIN.
+- Cloudflare created the apex DNS records and issued a Google Trust Services certificate covering `mpp.ninja` and `*.mpp.ninja`.
+- Git commit `97cad32c21d1f8d9b058eba36b6751a4740ff589` deployed as Worker version `d4e09698-0b36-45ad-a3dc-9ade4e2993a1` with the apex custom domain and `workers.dev` fallback enabled; preview URLs are explicitly disabled.
+- Live verification on 2026-08-25 returned `200` with the expected page and security headers at `https://mpp.ninja/`; `HEAD /` returned `200`, `GET /mpp` returned `404`, and `POST /` returned `405` with `Allow: GET, HEAD`.
+- The fallback `https://mpp-ninja.bcrt43.workers.dev/` continued to return `200` after custom-domain deployment.
