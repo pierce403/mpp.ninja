@@ -34,7 +34,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ## Hello World deployment
 
-**Stability:** in-progress
+**Stability:** stable
 
 ### Properties
 
@@ -51,12 +51,15 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ### Test criteria
 
-- [ ] TypeScript and Worker-runtime tests pass.
-- [ ] Wrangler configuration and generated types are current.
-- [ ] A dry-run deployment succeeds.
-- [ ] The deployed Worker returns the expected page, status codes, and security headers.
-- [ ] The deployed version is tied to a known Git commit.
+- [x] TypeScript and Worker-runtime tests pass.
+- [x] Wrangler configuration and generated types are current.
+- [x] A dry-run deployment succeeds.
+- [x] The deployed Worker returns the expected page, status codes, and security headers.
+- [x] The deployed version is tied to a known Git commit.
 
 ### Evidence
 
 - Initial Worker scaffold added on 2026-08-25.
+- `npm run check` passed on 2026-08-25, including generated-type verification, TypeScript, three Worker-runtime tests, and a Wrangler dry run.
+- Git commit `eba6fedf072aaa1bcb25b220224a1bb0efd13883` was pushed to GitHub and deployed as Cloudflare Worker version `4885040a-9061-4bba-ae75-1d0080546439`.
+- Live verification at `https://mpp-ninja.bcrt43.workers.dev/` returned the expected page and security headers; `HEAD /` returned `200`, `GET /mpp` returned `404`, and `POST /` returned `405` with `Allow: GET, HEAD`.

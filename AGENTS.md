@@ -38,6 +38,8 @@ npm run deploy
 
 Run `npm run types` after changing `wrangler.jsonc` bindings. Add only commands that have been run successfully in this checkout.
 
+Use Node 24 as specified by `.nvmrc`. Node 23 is unsupported by current Vitest and triggered an npm 11.1 dependency-resolver failure during setup.
+
 ## Feature specifications
 
 - Treat `FEATURES.md` as the living behavioral specification and acceptance tracker.
@@ -53,6 +55,11 @@ Run `npm run types` after changing `wrangler.jsonc` bindings. Add only commands 
 - Separate local implementation, automated test evidence, deployment success, and live production verification.
 - Keep security observations evidence-scoped; distinguish hypotheses from confirmed findings.
 - Commit durable project knowledge when the repository workflow calls for it.
+
+## Known issues and solutions
+
+- If HTTPS pushes invoke the removed Snap path `/snap/bin/gh`, run `gh auth setup-git` to point Git's credential helper at the installed GitHub CLI.
+- The initial Worker uses compatibility date `2026-08-22`, the newest date supported by the current local `workerd` test runtime when verified on 2026-08-25.
 
 ## Memory and skills
 

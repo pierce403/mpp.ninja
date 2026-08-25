@@ -4,6 +4,8 @@ A security-aware MPP observatory built with Cloudflare's MPP tooling and deploye
 
 The current app is a Hello World Cloudflare Worker. It intentionally has no MPP functionality yet. Product scope and acceptance criteria are tracked in [FEATURES.md](FEATURES.md).
 
+Live app: <https://mpp-ninja.bcrt43.workers.dev>
+
 ## Development
 
 ```bash
