@@ -160,7 +160,7 @@ List responses use capped pagination. Service filters map to parameterized D1 qu
 
 ## Deployment and verification state
 
-`wrangler.jsonc` preserves the existing `mpp.ninja` Custom Domain, `workers.dev` fallback, disabled preview URLs, observability, and version metadata while adding the data, queue, schedule, and strict-public-fetch bindings. D1, R2, and both Queues are provisioned; migration `0001_observatory.sql` is applied to remote D1; and the R2 30-day lifecycle is enabled. Observatory commit `d5569bf90f66ceed1324fae8b0249efe9c3fd55a` was deployed as Worker version `f2ac74be-2aa7-4411-b538-64a40b4a25d2`, then verified through the Custom Domain and `workers.dev` fallback.
+`wrangler.jsonc` preserves the existing `mpp.ninja` Custom Domain, `workers.dev` fallback, disabled preview URLs, observability, and version metadata while adding the data, queue, schedule, and strict-public-fetch bindings. D1, R2, and both Queues are provisioned; migrations `0001_observatory.sql` and `0002_redact_provider_identifiers.sql` are applied to remote D1; and the R2 30-day lifecycle is enabled. Observatory commit `e947ace18165f8378008f234beda1d28ebc74c7f` was deployed as Worker version `2cfb8a5b-21d6-4e38-ba94-4e72ea216e0f`, then verified through the Custom Domain and `workers.dev` fallback.
 
 For an empty production database, `GET /?bootstrap=1` starts the same fixed-source scheduled workflow only when the index has zero services and a ten-minute D1 lease is acquired. It is an asynchronous one-time operator trigger, not a general crawl endpoint; completion must be verified through `/api/stats`, discovery-run state, Queue progress, and an explicit R2 object.
 

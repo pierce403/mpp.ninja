@@ -4,7 +4,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ## Observatory foundation
 
-**Stability:** in-progress
+**Stability:** stable
 
 ### Properties
 
@@ -43,6 +43,9 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - On 2026-08-25, `npm audit --omit=dev` reported 0 production vulnerabilities.
 - D1 `mpp-observatory`, R2 `mpp-observations`, and both Queues are provisioned. Migration `0001_observatory.sql` was applied successfully to remote D1 from commit `d4c0392c47b4b6462853650feb63a374797fa3e4`; the empty schema was then seeded through the lease-protected bootstrap workflow. The enabled `observations-30d` lifecycle expires `observations/` objects after 30 days.
 - Observatory commit `d5569bf90f66ceed1324fae8b0249efe9c3fd55a` was deployed as Worker version `f2ac74be-2aa7-4411-b538-64a40b4a25d2`. The Custom Domain and `workers.dev` fallback returned the same exact version; Queue consumption produced normalized services/endpoints/offers and D1 observations; an R2-linked observation was read back explicitly; and the populated API, desktop UI, and true 390 CSS-pixel mobile UI were verified live. The initial asynchronous source barriers were still advancing when this release evidence was first recorded.
+- Hardening commit `e947ace18165f8378008f234beda1d28ebc74c7f` was deployed as Worker version `2cfb8a5b-21d6-4e38-ba94-4e72ea216e0f`. Migration `0002_redact_provider_identifiers.sql` removed the legacy D1 values, both affected private R2 objects were rewritten and read back, and live JSON/HTML checks found no remaining provider identifier while endpoint collection rows exposed their active provenance.
+- At `2026-08-25T19:26:17Z`, the moving production index contained 419 published services, 2,264 active endpoints, 3,898 active offers, 1,202 D1 observations with 1,202 R2 object links, 12,470 changes, and 17 runtime-observed MPP services. The Queue had completed 1,202 targets; mpp.dev and MPPScan source barriers were safely processing at 57/141 and 400/433 services, with zero failed discovery runs, snapshots, or targets. Counts continue changing as bounded jittered work drains and the six-hour schedule runs.
+- Conservative fingerprints at that snapshot were 392 unknown, 19 custom at 0.35 confidence, and 8 mppx at 0.85 confidence. Security-property state was 7,304 not-tested, 1,681 unknown, 3,980 tested-pass, 445 tested-fail, and 1 observed; each pass/fail applies only to its named harmless check and does not establish general security or vulnerability.
 
 ## Initial Hello World deployment (superseded)
 
