@@ -30,30 +30,31 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - [x] The supported observation workflows and non-goals are documented.
 - [x] The threat model and data-handling boundaries are documented.
 - [x] Automated tests cover discovery, parsing, normalization, history, API behavior, queue ordering/failure, redaction, SSRF boundaries, limits, and migrations.
-- [ ] A deployment is tied to a known commit and verified through live behavior.
+- [x] A deployment is tied to a known commit and verified through live behavior.
 - [x] No credentials or environment-specific secrets are committed.
-- [ ] Production D1 migration, R2 write, Queue consumption, first harmless crawl, indexed UI/API, Custom Domain, and exact Worker version are verified independently.
+- [x] Production D1 migration, R2 write, Queue consumption, first harmless crawl, indexed UI/API, Custom Domain, and exact Worker version are verified independently.
 
 ### Evidence
 
 - Repository setup started on 2026-08-25.
-- On 2026-08-25, `npm run check` passed under Node 24 with current generated bindings, TypeScript, 231 deterministic tests across 25 files, and a Wrangler dry-run (273.79 KiB upload / 59.63 KiB gzip).
+- On 2026-08-25, `npm run check` passed under Node 24 with current generated bindings, TypeScript, 236 deterministic tests across 26 files, and a Wrangler dry-run (274.86 KiB upload / 59.85 KiB gzip).
 - The live mpp.dev catalog shape was verified at 141 services and 1,449 raw endpoints. Query-free canonical dedupe produces 1,444 endpoint-ingest messages (15 bounded Queue batches, 1,798,238 expanded bytes); its 178 explicit `payment: null` endpoint values are treated as absent advertised offers.
 - Anonymous MPPScan/Merit page preflight extracted 433 unique public origins from the exact embedded `originUrls` hydration array without cookies, credentials, or its signed payment API.
 - On 2026-08-25, `npm audit --omit=dev` reported 0 production vulnerabilities.
-- D1 `mpp-observatory` and both Queues are provisioned. Migration `0001_observatory.sql` was applied successfully to remote D1 from commit `d4c0392c47b4b6462853650feb63a374797fa3e4`; the new schema reports zero services, endpoints, observations, and staged targets before seeding. Cloudflare API code `10042` still blocks R2 bucket creation until R2 is enabled in the account dashboard, so the observatory Worker, Queue bindings, R2 write, crawl, and live indexed counts remain unclaimed.
+- D1 `mpp-observatory`, R2 `mpp-observations`, and both Queues are provisioned. Migration `0001_observatory.sql` was applied successfully to remote D1 from commit `d4c0392c47b4b6462853650feb63a374797fa3e4`; the empty schema was then seeded through the lease-protected bootstrap workflow. The enabled `observations-30d` lifecycle expires `observations/` objects after 30 days.
+- Observatory commit `d5569bf90f66ceed1324fae8b0249efe9c3fd55a` was deployed as Worker version `f2ac74be-2aa7-4411-b538-64a40b4a25d2`. The Custom Domain and `workers.dev` fallback returned the same exact version; Queue consumption produced normalized services/endpoints/offers and D1 observations; an R2-linked observation was read back explicitly; and the populated API, desktop UI, and true 390 CSS-pixel mobile UI were verified live. The initial asynchronous source barriers were still advancing when this release evidence was first recorded.
 
-## Hello World deployment
+## Initial Hello World deployment (superseded)
 
 **Stability:** stable
 
+This historical baseline was replaced by the observatory deployment above.
+
 ### Properties
 
-- Serves an HTML status page from a TypeScript Cloudflare Worker.
-- States clearly that MPP functionality is not enabled.
-- Supports `GET` and `HEAD` at `/`, returns `404` for other paths, and `405` for unsupported methods.
-- Sends baseline content, framing, MIME-sniffing, and referrer security headers.
-- Enables Cloudflare Workers observability without storing application data.
+- Served an HTML status page from a TypeScript Cloudflare Worker.
+- Stated clearly that MPP functionality was not enabled in that initial release.
+- Established `GET`/`HEAD`, error, method, security-header, and observability baselines retained by the current application.
 
 ### Dependencies
 
@@ -95,8 +96,8 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 - [x] `mpp.ninja` resolves through Cloudflare DNS.
 - [x] HTTPS certificate validation succeeds for `mpp.ninja`.
-- [x] `GET https://mpp.ninja/` returns the expected Hello World page and security headers.
-- [x] Custom-domain error and method behavior matches the verified `workers.dev` deployment.
+- [x] `GET https://mpp.ninja/` returns the indexed observatory dashboard and security headers.
+- [x] Custom-domain UI/API, error, and method behavior matches the verified `workers.dev` deployment.
 - [x] The deployed custom-domain configuration is tied to a known Git commit.
 
 ### Evidence

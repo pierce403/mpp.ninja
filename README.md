@@ -13,7 +13,7 @@ The observatory does not make payments, create or sign credentials, replay autho
 One TypeScript Cloudflare Worker serves the HTML UI and read-only JSON API, accepts safe service submissions, runs scheduled discovery, and consumes crawl jobs. It uses:
 
 - D1 (`mpp-observatory`) for normalized services, endpoints, payment offers, source provenance, authoritative source snapshots, observations, security properties, changes, submissions, crawl state, and discovery runs.
-- R2 (`mpp-observations`) for bounded, redacted observation documents with a 30-day lifecycle; D1 retains the object key, SHA-256 body digest, and queryable summary, then clears expired object pointers. The Cloudflare account still needs R2 activation before this binding can be provisioned and the observatory deployment completed.
+- R2 (`mpp-observations`) for bounded, redacted observation documents; the production bucket is provisioned and its enabled `observations-30d` lifecycle expires `observations/` objects after 30 days. D1 retains the object key, SHA-256 body digest, and queryable summary, then clears expired object pointers.
 - Queues (`mpp-crawl`, with `mpp-crawl-dlq`) for deduplicated, delayed, retryable crawl work.
 - Cron (`17 */6 * * *`) for catalog refreshes and recrawling due targets.
 - A Worker Custom Domain for `mpp.ninja`; the existing `workers.dev` fallback remains enabled and preview URLs remain disabled.
@@ -68,7 +68,7 @@ npx wrangler d1 migrations apply mpp-observatory --local
 npx wrangler d1 migrations apply mpp-observatory --remote
 ```
 
-Deploy only after authenticating Wrangler with the intended Cloudflare account and satisfying the R2 activation prerequisite:
+When provisioning a new Cloudflare environment, authenticate Wrangler with the intended account, create the storage resources, apply the lifecycle, and then deploy:
 
 ```bash
 npx wrangler r2 bucket create mpp-observations
@@ -76,7 +76,7 @@ npx wrangler r2 bucket lifecycle add mpp-observations observations-30d observati
 npm run deploy
 ```
 
-After the first deployment to an empty migrated D1 database, start the fixed-source seed once through the lease-protected bootstrap URL, then poll the stats API and remote discovery runs rather than assuming the asynchronous Queue has finished:
+For a newly migrated empty environment, start the fixed-source seed once through the lease-protected bootstrap URL, then poll the stats API and remote discovery runs rather than assuming the asynchronous Queue has finished:
 
 ```bash
 curl -fsS 'https://mpp.ninja/?bootstrap=1' -o /tmp/mpp-bootstrap.html

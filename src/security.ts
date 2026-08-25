@@ -201,11 +201,16 @@ function sanitizeLocationHeader(value:string):string{try{const relativeBase="htt
 
 const SENSITIVE_KEY = /cookie|token|secret|credential|password|passwd|passphrase|api.?key|access.?key|private.?key|client.?key|jwt|proof|signature|payment.?(?:receipt|response)/i;
 const PUBLIC_AUTHORIZATION_METADATA_KEY = /^(?:max)?authorization(?:window|limit|limits|amount|exposure|duration|ttl)$/;
+// Provider object identifiers are operational payment metadata, not useful
+// economic terms. Match their semantic suffix after separator folding so
+// vendor-prefixed spellings such as `stripe_payment_intent_id` are covered
+// without hiding public values such as chainId, amount, deposit, or windows.
+const OPAQUE_PROVIDER_IDENTIFIER_KEY = /(?:payment|paymentintent|setupintent|checkoutsession|transaction|charge|invoice|refund|payout|transfer|customer|order|subscription|mandate)(?:id|identifier|reference)$|^(?:provider|processor|gateway|merchant)(?:payment|transaction|charge|session|order)?(?:id|identifier|reference)$/;
 
 function isSensitiveJsonKey(key:string):boolean{
   const compact=key.toLowerCase().replace(/[^a-z0-9]/g,"");
   if(PUBLIC_AUTHORIZATION_METADATA_KEY.test(compact))return SENSITIVE_KEY.test(key);
-  return compact.includes("authorization")||SENSITIVE_KEY.test(key);
+  return compact.includes("authorization")||SENSITIVE_KEY.test(key)||OPAQUE_PROVIDER_IDENTIFIER_KEY.test(compact);
 }
 
 /** Redacts secret-shaped keys and bounds attacker-controlled JSON before storage or API use. */
@@ -231,7 +236,7 @@ export function redactText(value: string): string {
   return value
     .replace(/\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,"[redacted-jwt]")
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [redacted]")
-    .replace(/((?:authorization|proxy-authorization|cookie|set-cookie|token|secret|credential|password|passwd|passphrase|api[_-]?key|access[_-]?key|private[_-]?key|signature|payment[_-]?(?:credential|signature|receipt|response))\s*["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi, '$1"[redacted]"');
+    .replace(/((?:authorization|proxy-authorization|cookie|set-cookie|token|secret|credential|password|passwd|passphrase|api[_-]?key|access[_-]?key|private[_-]?key|signature|payment[_-]?(?:credential|signature|receipt|response|intent[_-]?(?:id|identifier|reference))|(?:provider|processor|gateway|merchant)[_-]?(?:(?:payment|transaction|charge|session|order)[_-]?)?(?:id|identifier|reference)|(?:transaction|charge|invoice|refund|payout|transfer|customer|order|subscription|mandate)[_-]?(?:id|identifier|reference))\s*["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi, '$1"[redacted]"');
 }
 
 export async function readBoundedBody(response: Response, limit = MAX_RESPONSE_BYTES): Promise<{ text: string; bytes: number }> {

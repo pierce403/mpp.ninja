@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
-import { listServices, parsePage, upsertCatalogService } from "../src/db";
+import { listEndpoints, listServices, parsePage, upsertCatalogService } from "../src/db";
 import type { CatalogService } from "../src/model";
 
 function service(overrides:Partial<CatalogService>={}):CatalogService{
@@ -50,5 +50,21 @@ describe("D1 migrations and normalized history",()=>{
     const longLiteral="%_".repeat(60);
     const longSearch=await listServices(env.DB,parsePage(new URL(`https://mpp.ninja/api/services?q=${encodeURIComponent(longLiteral)}`)));
     expect(longSearch.pagination).toMatchObject({total:0,nextCursor:null});
+  });
+
+  it("returns bounded active provenance with endpoint collection rows",async()=>{
+    const sourceRef="https://mpp.dev/api/services";
+    const {serviceId,endpointIds}=await upsertCatalogService(env.DB,service({id:"endpoint-provenance",serviceUrl:"https://endpoint-provenance.example/"}),sourceRef,"2026-08-27T00:00:00.000Z");
+    await env.DB.prepare("INSERT INTO endpoint_sources (endpoint_id,source_type,source_ref,first_seen,last_seen,observed_at,active) VALUES (?,'openapi','https://endpoint-provenance.example/withdrawn.json','2026-08-26','2026-08-26','2026-08-26',0)").bind(endpointIds[0]).run();
+
+    const result=await listEndpoints(env.DB,new URL(`https://mpp.ninja/api/endpoints?service=${serviceId}`));
+    expect(result.pagination).toMatchObject({total:1,nextCursor:null});
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        id:endpointIds[0],
+        activeSources:[{type:"catalog",ref:sourceRef,firstSeen:"2026-08-27T00:00:00.000Z",lastSeen:"2026-08-27T00:00:00.000Z"}],
+        activeSourcePagination:{limit:32,total:1,truncated:false},
+      }),
+    ]);
   });
 });

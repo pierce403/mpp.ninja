@@ -5,7 +5,7 @@ import { failSourceSnapshot, failStaleSourceSnapshots, getService, getStats, lis
 import type { ApiCatalogLinkMessage, CatalogIngestMessage, CrawlMessage, DueTargetMessage, ObservatoryQueueMessage, OpenApiOperationMessage, UrlDiscoveryMessage } from "./model";
 import { importMppScan, processMppScanCandidate } from "./mppscan";
 import { pruneRetainedData } from "./retention";
-import { ScanSafetyError, normalizeUrl, readBoundedBody, redactText, redactUrlForStorage, resolvePublicHostname, safeJson } from "./security";
+import { ScanSafetyError, normalizeUrl, readBoundedBody, redactJsonValue, redactText, redactUrlForStorage, resolvePublicHostname, safeJson } from "./security";
 import { attachManualSubmissionService, consumeSubmissionBudget, expireManualCandidates, reserveManualSubmission } from "./submissions";
 import { renderChanges, renderDashboard, renderImplementations, renderMethodology, renderNotFound, renderServiceDetail, renderServices, renderSubmissionForm } from "./ui";
 
@@ -31,7 +31,7 @@ function response(body:BodyInit|null,init:ResponseInit={},api=false):Response{
 }
 
 function html(body:string,status=200,head=false):Response{return response(head?null:body,{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"public, max-age=15, s-maxage=30"}});}
-function json(value:unknown,status=200,head=false):Response{return response(head?null:safeJson(value),{status,headers:{"Content-Type":"application/json; charset=utf-8"}},true);}
+function json(value:unknown,status=200,head=false):Response{return response(head?null:safeJson(redactJsonValue(value)),{status,headers:{"Content-Type":"application/json; charset=utf-8"}},true);}
 function errorJson(status:number,code:string,message:string,head=false):Response{const result=json({error:{code,message}},status,head);result.headers.set("Cache-Control","no-store");return result;}
 
 async function handleGet(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{

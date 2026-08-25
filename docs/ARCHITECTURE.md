@@ -52,7 +52,7 @@ The Queue consumer uses one message per invocation, a maximum concurrency of 5, 
 
 Durable Objects are not used. The current coordination problem is a relational index with conditional per-origin leases, not a long-lived strongly consistent entity or WebSocket session. D1 is the smaller operational surface for that requirement. Revisit this only if measured contention shows that D1 leases are insufficient.
 
-The Cloudflare account still needs R2 activation before `mpp-observations` can be created. The binding is deliberately present in configuration because R2 is part of the required architecture; this is a deployment prerequisite, not permission to silently replace redacted observation storage with D1. Production also requires a 30-day lifecycle rule on the `observations/` prefix.
+The production `mpp-observations` bucket is provisioned and bound to the Worker. Its enabled `observations-30d` lifecycle expires the `observations/` prefix after 30 days; that rule is part of the production data-minimization boundary and must not be removed.
 
 ## Discovery and provenance
 
@@ -160,8 +160,8 @@ List responses use capped pagination. Service filters map to parameterized D1 qu
 
 ## Deployment and verification state
 
-`wrangler.jsonc` preserves the existing `mpp.ninja` Custom Domain, `workers.dev` fallback, disabled preview URLs, observability, and version metadata while adding the data, queue, schedule, and strict-public-fetch bindings. D1 and both Queues have been provisioned, and migration `0001_observatory.sql` has been applied to remote D1. R2 activation and bucket creation are still outstanding.
+`wrangler.jsonc` preserves the existing `mpp.ninja` Custom Domain, `workers.dev` fallback, disabled preview URLs, observability, and version metadata while adding the data, queue, schedule, and strict-public-fetch bindings. D1, R2, and both Queues are provisioned; migration `0001_observatory.sql` is applied to remote D1; and the R2 30-day lifecycle is enabled. Observatory commit `d5569bf90f66ceed1324fae8b0249efe9c3fd55a` was deployed as Worker version `f2ac74be-2aa7-4411-b538-64a40b4a25d2`, then verified through the Custom Domain and `workers.dev` fallback.
 
 For an empty production database, `GET /?bootstrap=1` starts the same fixed-source scheduled workflow only when the index has zero services and a ten-minute D1 lease is acquired. It is an asynchronous one-time operator trigger, not a general crawl endpoint; completion must be verified through `/api/stats`, discovery-run state, Queue progress, and an explicit R2 object.
 
-No production observatory count, deployed observatory commit, or deployed observatory version is claimed in this document. Record those only after migrations, seeding, a harmless crawl, UI/API checks on `https://mpp.ninja`, exact-version verification, and remote `main` parity all succeed.
+The first production seed was started through the bootstrap lease and verified independently through remote discovery state, Queue-driven observations, an explicit R2 object readback, live UI/API responses at `https://mpp.ninja`, exact Worker version metadata, and remote `main` parity. Point-in-time indexed counts and the latest release evidence are recorded in `FEATURES.md` rather than treated as fixed architecture.

@@ -1,3 +1,5 @@
+import { redactJsonValue } from "./security";
+
 type DataRow = Record<string, unknown>;
 
 interface RenderResult {
@@ -394,7 +396,7 @@ function serviceTable(payload: unknown, compact = false): string {
 }
 
 function changesTimeline(payload: unknown, limit?: number): string {
-  const changes = dataRows(payload).slice(0, limit ?? Number.POSITIVE_INFINITY);
+  const changes = dataRows(redactJsonValue(payload)).slice(0, limit ?? Number.POSITIVE_INFINITY);
   if (changes.length === 0) return `<div class="panel"><div class="empty">No historical changes recorded yet.</div></div>`;
   return `<div class="timeline">${changes.map((change) => {
     const oldValue = text(change.old_value, "");
@@ -519,7 +521,7 @@ function renderEndpoint(endpoint: DataRow): string {
 }
 
 export function renderServiceDetail(serviceInput: unknown): string {
-  const service = row(serviceInput);
+  const service = row(redactJsonValue(serviceInput));
   const endpoints = rows(service.endpoints);
   const security = rows(service.security);
   const sources = rows(service.sources);
