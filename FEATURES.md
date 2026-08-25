@@ -4,33 +4,44 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ## Observatory foundation
 
-**Stability:** planned
+**Stability:** in-progress
 
 ### Properties
 
-- Provides a security-aware observatory using Cloudflare's MPP tooling.
-- Runs on explicitly documented Cloudflare infrastructure.
+- Discovers public MPP services from `mpp.dev`, the anonymous MPPScan/Merit page, advertised OpenAPI/RFC 9727 metadata, runtime `402` challenges, and manual submissions.
+- Normalizes services, endpoints, provenance, payment offers, implementation evidence, named security properties, observations, and historical changes in D1.
+- Runs on one Cloudflare Worker with D1, R2, Queues, a dead-letter Queue, Cron, observability, version metadata, and the existing apex Custom Domain.
 - Keeps security-sensitive configuration and credentials out of source control.
 - Makes observed data provenance, collection boundaries, and security assumptions inspectable.
+- Serves the dashboard, service index/detail views, endpoint/payment data, implementation concentration, methodology, changes, submissions, and the required read-only JSON API.
+- Makes only bounded unauthenticated `GET`/`HEAD` observations. It has no signer, wallet, payment, credential, replay, fuzzing, exploitation, or state-changing scan path.
+- Publishes normalized source revisions and their crawl authority atomically, confines every network target to its normalized service hostname, and applies bounded 30-day observation/manual retention plus 14-day coordination cleanup.
 
 ### Dependencies
 
-- Product scope and threat model
-- Selection of the relevant Cloudflare MPP tooling and runtime components
-- Local application scaffold
-- GitHub and Cloudflare deployment configuration
+- D1 `mpp-observatory`
+- R2 `mpp-observations`
+- Queue `mpp-crawl` and dead-letter Queue `mpp-crawl-dlq`
+- Six-hour Cron discovery/recrawl trigger
+- Cloudflare Worker `mpp-ninja` and `mpp.ninja` Custom Domain
 
 ### Test criteria
 
-- [ ] The supported observation workflows and non-goals are documented.
-- [ ] The threat model and data-handling boundaries are documented.
-- [ ] Automated tests cover the selected core workflows and security boundaries.
+- [x] The supported observation workflows and non-goals are documented.
+- [x] The threat model and data-handling boundaries are documented.
+- [x] Automated tests cover discovery, parsing, normalization, history, API behavior, queue ordering/failure, redaction, SSRF boundaries, limits, and migrations.
 - [ ] A deployment is tied to a known commit and verified through live behavior.
-- [ ] No credentials or environment-specific secrets are committed.
+- [x] No credentials or environment-specific secrets are committed.
+- [ ] Production D1 migration, R2 write, Queue consumption, first harmless crawl, indexed UI/API, Custom Domain, and exact Worker version are verified independently.
 
 ### Evidence
 
 - Repository setup started on 2026-08-25.
+- On 2026-08-25, `npm run check` passed under Node 24 with current generated bindings, TypeScript, 231 deterministic tests across 25 files, and a Wrangler dry-run (273.79 KiB upload / 59.63 KiB gzip).
+- The live mpp.dev catalog shape was verified at 141 services and 1,449 raw endpoints. Query-free canonical dedupe produces 1,444 endpoint-ingest messages (15 bounded Queue batches, 1,798,238 expanded bytes); its 178 explicit `payment: null` endpoint values are treated as absent advertised offers.
+- Anonymous MPPScan/Merit page preflight extracted 433 unique public origins from the exact embedded `originUrls` hydration array without cookies, credentials, or its signed payment API.
+- On 2026-08-25, `npm audit --omit=dev` reported 0 production vulnerabilities.
+- D1 `mpp-observatory` and both Queues are provisioned. Cloudflare API code `10042` still blocks R2 bucket creation until R2 is enabled in the account dashboard; production migration/deployment and live counts remain unclaimed.
 
 ## Hello World deployment
 

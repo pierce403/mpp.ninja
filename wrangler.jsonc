@@ -5,7 +5,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "compatibility_date": "2026-08-22",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "routes": [
     {
       "pattern": "mpp.ninja",
@@ -17,5 +17,44 @@
     "logs": {
       "head_sampling_rate": 1
     }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mpp-observatory",
+      "database_id": "e0c26f1d-6be3-4ebe-b1ac-9ba8e1a14a87",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "OBSERVATIONS",
+      "bucket_name": "mpp-observations"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "CRAWL_QUEUE",
+        "queue": "mpp-crawl"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "mpp-crawl",
+        "max_batch_size": 1,
+        "max_batch_timeout": 10,
+        "max_retries": 5,
+        "dead_letter_queue": "mpp-crawl-dlq",
+        "retry_delay": 30,
+        "max_concurrency": 5
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["17 */6 * * *"]
+  },
+  "version_metadata": {
+    "binding": "VERSION"
   }
 }

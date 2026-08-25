@@ -1,6 +1,6 @@
 {
   "name": "mpp.ninja",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -17,8 +17,8 @@
     "types:check": "wrangler types --check"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.0.0",
     "@cloudflare/workers-types": "latest",
-    "@cloudflare/vitest-pool-workers": "latest",
     "@types/node": "latest",
     "typescript": "~5.9.3",
     "vitest": "latest",

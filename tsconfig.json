@@ -6,6 +6,7 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "strict": true,
+    "target": "ES2023",
     "types": ["./worker-configuration.d.ts"]
   },
   "include": ["src/**/*.ts", "worker-configuration.d.ts"]
