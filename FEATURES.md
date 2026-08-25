@@ -41,7 +41,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - The live mpp.dev catalog shape was verified at 141 services and 1,449 raw endpoints. Query-free canonical dedupe produces 1,444 endpoint-ingest messages (15 bounded Queue batches, 1,798,238 expanded bytes); its 178 explicit `payment: null` endpoint values are treated as absent advertised offers.
 - Anonymous MPPScan/Merit page preflight extracted 433 unique public origins from the exact embedded `originUrls` hydration array without cookies, credentials, or its signed payment API.
 - On 2026-08-25, `npm audit --omit=dev` reported 0 production vulnerabilities.
-- D1 `mpp-observatory` and both Queues are provisioned. Cloudflare API code `10042` still blocks R2 bucket creation until R2 is enabled in the account dashboard; production migration/deployment and live counts remain unclaimed.
+- D1 `mpp-observatory` and both Queues are provisioned. Migration `0001_observatory.sql` was applied successfully to remote D1 from commit `d4c0392c47b4b6462853650feb63a374797fa3e4`; the new schema reports zero services, endpoints, observations, and staged targets before seeding. Cloudflare API code `10042` still blocks R2 bucket creation until R2 is enabled in the account dashboard, so the observatory Worker, Queue bindings, R2 write, crawl, and live indexed counts remain unclaimed.
 
 ## Hello World deployment
 
