@@ -171,7 +171,7 @@ export async function listEndpoints(db: D1Database, url: URL): Promise<Record<st
   clauses.push(ACTIVE_ENDPOINT_SQL);
   const where = `WHERE ${clauses.join(" AND ")}`;
   const [rows, count] = await Promise.all([
-    db.prepare(`SELECT e.*,s.name AS service_name,s.implementation,
+    db.prepare(`SELECT e.*,s.name AS service_name,s.implementation,s.implementation_confidence,
       (SELECT json_group_array(json_object('method',p.method,'intent',p.intent,'currency',p.currency,'chainId',p.chain_id,'recipient',p.recipient,'amount',p.amount,'decimals',p.decimals,'unitType',p.unit_type,'session',json(p.session_json),'sourceType',p.source_type,'sourceRef',p.source_ref,'sourceOrdinal',p.source_ordinal)) FROM (SELECT * FROM active_payment_offers po WHERE po.endpoint_id=e.id ORDER BY po.source_type,po.source_ref,po.source_ordinal,po.id LIMIT ${DETAIL_OFFER_LIMIT}) p) AS offers_json,
       (SELECT COUNT(*) FROM active_payment_offers p WHERE p.endpoint_id=e.id) AS offer_count,
       (SELECT json_group_array(json_object('type',es.source_type,'ref',es.source_ref,'firstSeen',es.first_seen,'lastSeen',es.last_seen)) FROM (SELECT * FROM active_endpoint_sources ess WHERE ess.endpoint_id=e.id ORDER BY ess.source_type,ess.source_ref LIMIT 32) es) AS active_sources_json,

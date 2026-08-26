@@ -53,6 +53,15 @@ npm run check
 npm run dev
 ```
 
+Correlate the normalized public index with the observable preconditions from the Tempo MPP review:
+
+```bash
+npm run audit:index
+npm run audit:index -- --json
+```
+
+The audit command reads only `mpp.ninja`'s paginated `/api/endpoints` data. It never contacts an indexed service, never creates credentials, and never pays. It can identify review candidates for the C-010 session-authorization class and the C-011/C-012 `mpp-rs` session-integration classes, but it deliberately reports zero confirmed vulnerabilities without the missing version, integration, signed-state, delivery, and settlement evidence. Use `--input endpoints.json` for an offline API export or `--base-url http://localhost:8787` during local development.
+
 `npm run check` is the comprehensive local gate: generated binding types, TypeScript, deterministic Worker/D1 tests, and a Wrangler dry run.
 
 After changing bindings, regenerate types:

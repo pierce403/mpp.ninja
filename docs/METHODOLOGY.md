@@ -136,6 +136,8 @@ Every property uses exactly one state:
 
 The scanner may record harmless controls such as HTTPS transport, stable public target validation, redirect-policy compliance, bounded response handling, and challenge parsing. Paid economic behavior, concurrency, replay, and settlement normally remain `not-tested`; absence of a challenge normally remains `unknown`, not a passed result.
 
+The repository's `npm run audit:index` CLI performs a separate, index-only correlation pass. It reads normalized `/api/endpoints` pages and never contacts indexed services. An active Tempo `session` offer is a C-010 review surface, not proof that the server requested excess authorization or that any affected client accepted it. An `mpp-rs` fingerprint plus a Tempo `session` offer adds C-011 and C-012 review candidates, but neither an implementation fingerprint nor an offer establishes the exact deployed version, the bundled multi-fetch integration pattern, duplicate delivery, or underpayment. The CLI therefore cannot produce a confirmed-vulnerability verdict from index evidence alone.
+
 ## MPP challenge normalization
 
 The parser supports at most eight `Payment` challenges in one `WWW-Authenticate` value without splitting quoted commas. It records:

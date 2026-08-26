@@ -15,6 +15,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - Makes observed data provenance, collection boundaries, and security assumptions inspectable.
 - Serves the dashboard, service index/detail views, endpoint/payment data, implementation concentration, methodology, changes, submissions, and the required read-only JSON API.
 - Makes only bounded unauthenticated `GET`/`HEAD` observations. It has no signer, wallet, payment, credential, replay, fuzzing, exploitation, or state-changing scan path.
+- Includes a dependency-free, index-only CLI that correlates normalized endpoint offers with the observable preconditions for Tempo MPP research classes C-010, C-011, and C-012 without contacting indexed services or promoting candidates to confirmed vulnerabilities.
 - Publishes normalized source revisions and their crawl authority atomically, confines every network target to its normalized service hostname, and applies bounded 30-day observation/manual retention plus 14-day coordination cleanup.
 
 ### Dependencies
@@ -30,6 +31,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - [x] The supported observation workflows and non-goals are documented.
 - [x] The threat model and data-handling boundaries are documented.
 - [x] Automated tests cover discovery, parsing, normalization, history, API behavior, queue ordering/failure, redaction, SSRF boundaries, limits, and migrations.
+- [x] Automated tests keep charge-only offers and implementation markers from becoming vulnerability claims, and cover the CLI's session-risk correlation, evidence gaps, truncation warning, and bounded API pagination.
 - [x] A deployment is tied to a known commit and verified through live behavior.
 - [x] No credentials or environment-specific secrets are committed.
 - [x] Production D1 migration, R2 write, Queue consumption, first harmless crawl, indexed UI/API, Custom Domain, and exact Worker version are verified independently.
@@ -37,7 +39,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 ### Evidence
 
 - Repository setup started on 2026-08-25.
-- On 2026-08-25, `npm run check` passed under Node 24 with current generated bindings, TypeScript, 236 deterministic tests across 26 files, and a Wrangler dry-run (274.86 KiB upload / 59.85 KiB gzip).
+- On 2026-08-25, the comprehensive checks passed under Node 24 with current generated bindings, TypeScript, 241 deterministic tests across 27 files, and a Wrangler dry-run (274.89 KiB upload / 59.85 KiB gzip).
 - The live mpp.dev catalog shape was verified at 141 services and 1,449 raw endpoints. Query-free canonical dedupe produces 1,444 endpoint-ingest messages (15 bounded Queue batches, 1,798,238 expanded bytes); its 178 explicit `payment: null` endpoint values are treated as absent advertised offers.
 - Anonymous MPPScan/Merit page preflight extracted 433 unique public origins from the exact embedded `originUrls` hydration array without cookies, credentials, or its signed payment API.
 - On 2026-08-25, `npm audit --omit=dev` reported 0 production vulnerabilities.
