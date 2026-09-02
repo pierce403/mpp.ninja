@@ -71,7 +71,7 @@ export async function safeProbe(rawUrl: string, kind: CrawlMessage["kind"], depe
     if (hop === MAX_REDIRECTS) throw new ScanSafetyError("too-many-redirects", `More than ${MAX_REDIRECTS} redirects`);
     const next = normalizeDiscoveryUrl(new URL(location, current).toString());
     if (initialProtocol === "https:" && new URL(next).protocol !== "https:") throw new ScanSafetyError("https-downgrade", "HTTPS to HTTP redirects are blocked");
-    if(new URL(next).hostname!==initialHostname)throw new ScanSafetyError("cross-host-redirect","Redirects to a different hostname are recorded as blocked, not followed");
+    if(new URL(next).hostname!==initialHostname)throw new ScanSafetyError("cross-host-redirect",`Cross-host redirect to ${redactUrlForStorage(next)} was recorded but not followed`);
     redirects.push(next);
     await response.body?.cancel().catch(() => undefined);
     current = next;

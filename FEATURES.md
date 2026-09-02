@@ -57,7 +57,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 - Reserves `tested-fail` for a named harmless validation that ran against content claiming the expected structure.
 - Records an absent optional OpenAPI/RFC 9727 document and a scanner-policy stop as observed evidence rather than an endpoint failure.
-- Retains bounded D1 observation summaries for terminal scanner-policy stops, including the normalized target, error code, redacted reason, and observation time.
+- Retains bounded D1 observation summaries for terminal scanner-policy stops, including the normalized target, error code, redacted reason, observation time, and sanitized redirect destination when applicable.
 - Shows established services by default while keeping raw MPPScan and manual leads inspectable in an explicit discovery-candidate view.
 - Labels endpoint counts as confirmed or advertised MPP endpoints and shows harmless probe-observation coverage separately.
 
@@ -77,7 +77,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ### Evidence
 
-- On 2026-09-02, focused Worker-runtime tests covered discovery withdrawal semantics, exact challenge-validation evidence, scanner-stop persistence, candidate filtering, and UI labels. `npm run check` then passed generated-binding verification, TypeScript, all 245 tests in 27 files, and a Wrangler dry run at 283.44 KiB (61.65 KiB gzip). Production migration and publication remain pending.
+- On 2026-09-02, focused Worker-runtime tests covered discovery withdrawal semantics, exact challenge-validation and sanitized redirect evidence, scanner-stop persistence, candidate filtering, and UI labels. `npm run check` then passed generated-binding verification, TypeScript, all 245 tests in 27 files, and a Wrangler dry run at 283.45 KiB (61.64 KiB gzip). Production migration and final publication verification remain pending.
 
 ## Initial Hello World deployment (superseded)
 

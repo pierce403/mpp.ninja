@@ -55,13 +55,13 @@ describe("fail-closed crawl provenance", () => {
 
     expect(await env.DB.prepare("SELECT state,evidence,basis FROM security_properties WHERE service_id=? AND property_key='probe_safety'").bind(serviceId).first()).toEqual({
       state:"observed",
-      evidence:"cross-host-redirect: Redirects to a different hostname are recorded as blocked, not followed",
+      evidence:"cross-host-redirect: Cross-host redirect to https://other.example/ was recorded but not followed",
       basis:"scanner policy decision",
     });
     expect(await env.DB.prepare("SELECT status,error_code,error_detail,requested_url FROM observations WHERE service_id=?").bind(serviceId).first()).toEqual({
       status:null,
       error_code:"cross-host-redirect",
-      error_detail:"Redirects to a different hostname are recorded as blocked, not followed",
+      error_detail:"Cross-host redirect to https://other.example/ was recorded but not followed",
       requested_url:targetUrl,
     });
   });

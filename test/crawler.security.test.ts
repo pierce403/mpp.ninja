@@ -89,10 +89,12 @@ describe("safe redirect processing", () => {
         : new Response("payment metadata", { status: 200, headers: { "Content-Type": "text/plain" } }),
     );
 
-    await expectProbeSafetyCode(
-      () => safeProbe("https://api.example/start", "endpoint", { fetcher, resolver }),
-      "cross-host-redirect",
-    );
+    await expect(
+      safeProbe("https://api.example/start", "endpoint", { fetcher, resolver }),
+    ).rejects.toMatchObject({
+      code: "cross-host-redirect",
+      message: "Cross-host redirect to https://payments.example/final was recorded but not followed",
+    });
     expect(calls.map((call) => call.url)).toEqual(["https://api.example/start"]);
     expect(resolutions).toEqual([
       "api.example:A",
