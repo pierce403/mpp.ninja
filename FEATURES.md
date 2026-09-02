@@ -51,7 +51,7 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 
 ## Evidence semantics and discovery candidates
 
-**Stability:** in-progress
+**Stability:** stable
 
 ### Properties
 
@@ -73,11 +73,13 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - [x] Malformed content claiming JSON remains a parser validation failure.
 - [x] A scanner-policy stop persists a redacted observation and is not counted as a failed endpoint validation.
 - [x] The default human index excludes candidate-only leads while the candidate view exposes their probe coverage.
-- [ ] Migration, deployment, and corrected live UI/API behavior are verified independently.
+- [x] Migration, deployment, and corrected live UI/API behavior are verified independently.
 
 ### Evidence
 
-- On 2026-09-02, focused Worker-runtime tests covered discovery withdrawal semantics, exact challenge-validation and sanitized redirect evidence, scanner-stop persistence, candidate filtering, and UI labels. `npm run check` then passed generated-binding verification, TypeScript, all 245 tests in 27 files, and a Wrangler dry run at 283.45 KiB (61.64 KiB gzip). Production migration and final publication verification remain pending.
+- On 2026-09-02, focused Worker-runtime tests covered discovery withdrawal semantics, exact challenge-validation and sanitized redirect evidence, scanner-stop persistence, candidate filtering, and UI labels. `npm run check` then passed generated-binding verification, TypeScript, all 245 tests in 27 files, and a Wrangler dry run at 283.45 KiB (61.64 KiB gzip).
+- Migration `0003_evidence_semantics.sql` applied successfully to remote D1 and readback showed 660 formerly misleading failures reclassified as observations: production `tested-fail` fell from 696 to 36, comprising 14 challenge, 12 OpenAPI, and 10 API-catalog validations. The `(state, service_id)` index was present after migration.
+- Commit `2d4650e9` was deployed as Worker version `bf48b5f1-cad1-4632-b506-3843313ef2a0`. The Custom Domain and `workers.dev` fallback returned that exact version and `tested_fail: 36`; the live failure filter returned normally. Live HTML showed `nebulacomponents.shop` absent from the established view and present only in the candidate view with zero confirmed/advertised endpoints and one scanner stop. A direct `HEAD` confirmed its cross-host redirect to `https://nebulacomponents.com/`; future scanner-stop observations retain that sanitized destination without following it. The in-app browser surface was unavailable, so this release records response-level UI verification rather than screenshot-level visual QA.
 
 ## Initial Hello World deployment (superseded)
 
