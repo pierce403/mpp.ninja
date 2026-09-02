@@ -40,6 +40,31 @@ describe("fail-closed crawl provenance", () => {
     expect(fetches).toBe(0);
     expect(await env.DB.prepare("SELECT status,last_error,next_due_at FROM crawl_targets WHERE id=?").bind(legacyId).first()).toEqual({status:"retired",last_error:"cross-host-or-missing-service",next_due_at:null});
   });
+
+  it("records a scanner-policy stop as observed probe evidence rather than a failed endpoint validation",async()=>{
+    const serviceId="scanner-stop-observation";
+    const targetUrl="https://1.0.0.30/";
+    await env.DB.prepare("INSERT INTO services (id,name,service_url,origin,status,first_seen,last_seen) VALUES (?,?,?,?,?,?,?)")
+      .bind(serviceId,serviceId,targetUrl,"https://1.0.0.30","candidate","2026-08-25T00:00:00.000Z","2026-08-25T00:00:00.000Z").run();
+    const queued:CrawlMessage[]=[];
+    const fakeEnv={DB:env.DB,CRAWL_QUEUE:{send:async(body:CrawlMessage)=>queued.push(body)},OBSERVATIONS:{get:async()=>null}} as unknown as Env;
+    await enqueueTarget(fakeEnv,{type:"probe",url:targetUrl,serviceId,kind:"endpoint",source:"mppscan"},0,false,{sourceType:"mppscan",sourceRef:"https://mppscan.com/",observedAt:"2026-08-25T01:00:00.000Z"});
+    vi.stubGlobal("fetch",async()=>new Response(null,{status:302,headers:{Location:"https://other.example/"}}));
+
+    await expect(processCrawlMessage(fakeEnv,queued[0])).rejects.toMatchObject({code:"cross-host-redirect"});
+
+    expect(await env.DB.prepare("SELECT state,evidence,basis FROM security_properties WHERE service_id=? AND property_key='probe_safety'").bind(serviceId).first()).toEqual({
+      state:"observed",
+      evidence:"cross-host-redirect: Redirects to a different hostname are recorded as blocked, not followed",
+      basis:"scanner policy decision",
+    });
+    expect(await env.DB.prepare("SELECT status,error_code,error_detail,requested_url FROM observations WHERE service_id=?").bind(serviceId).first()).toEqual({
+      status:null,
+      error_code:"cross-host-redirect",
+      error_detail:"Redirects to a different hostname are recorded as blocked, not followed",
+      requested_url:targetUrl,
+    });
+  });
 });
 
 describe("collision-safe structured redaction", () => {

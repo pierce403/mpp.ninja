@@ -127,14 +127,16 @@ Every property uses exactly one state:
 
 | State | Meaning |
 | --- | --- |
-| `observed` | The public response or discovery record directly contained the named fact. No broader claim is implied. |
+| `observed` | The public response or discovery record directly contained the named fact, or the scanner recorded why its safety policy stopped. No broader claim is implied. |
 | `inferred` | A deterministic interpretation was derived from named public evidence, with uncertainty retained. |
 | `tested-pass` | The named harmless test passed for this target and observation. This is not a general security guarantee. |
-| `tested-fail` | The named harmless test failed. The evidence must distinguish target behavior from scanner policy rejection or parser failure. |
+| `tested-fail` | The named harmless validation ran against a claimed structure and failed. Missing optional discovery documents and scanner-policy stops are recorded as `observed`, not failures. |
 | `unknown` | Available public evidence cannot determine the property. |
 | `not-tested` | Testing the property would exceed the unauthenticated, non-state-changing boundary. |
 
-The scanner may record harmless controls such as HTTPS transport, stable public target validation, redirect-policy compliance, bounded response handling, and challenge parsing. Paid economic behavior, concurrency, replay, and settlement normally remain `not-tested`; absence of a challenge normally remains `unknown`, not a passed result.
+The scanner records harmless controls such as HTTPS transport, stable public target validation, redirect-policy compliance, bounded response handling, and challenge parsing. It also retains each bounded base, conventional OpenAPI, and RFC 9727 discovery observation even when no MPP endpoint is established. A missing optional document is useful discovery evidence rather than a failed validation; malformed content that claims the expected JSON media type can fail the named parser validation. Paid economic behavior, concurrency, replay, and settlement normally remain `not-tested`; absence of a challenge normally remains `unknown`, not a passed result.
+
+The default human service index shows established records. Raw MPPScan and manual discovery leads remain inspectable in the candidate view with their probe observations and scanner-stop reasons. An MPP endpoint count includes only current catalog, OpenAPI, or valid runtime challenge authority; it is not a count of attempted URLs.
 
 The repository's `npm run audit:index` CLI performs a separate, index-only correlation pass. It reads normalized `/api/endpoints` pages and never contacts indexed services. An active Tempo `session` offer is a C-010 review surface, not proof that the server requested excess authorization or that any affected client accepted it. An `mpp-rs` fingerprint plus a Tempo `session` offer adds C-011 and C-012 review candidates, but neither an implementation fingerprint nor an offer establishes the exact deployed version, the bundled multi-fetch integration pattern, duplicate delivery, or underpayment. The CLI therefore cannot produce a confirmed-vulnerability verdict from index evidence alone.
 

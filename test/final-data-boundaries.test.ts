@@ -88,7 +88,7 @@ describe("generic discovery parse errors", () => {
       .first<{ state: string; evidence: string; basis: string }>();
     expect(property).toEqual({
       state: "tested-fail",
-      evidence: "OpenAPI response was not valid JSON",
+      evidence: "OpenAPI response claimed JSON but was not valid JSON",
       basis: "harmless discovery response",
     });
     expect(JSON.stringify(property)).not.toContain(responseFragment);

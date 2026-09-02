@@ -19,10 +19,10 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 const STATE_EXPLANATIONS: Record<string, string> = {
-  observed: "Directly present in public metadata or an unauthenticated response.",
+  observed: "Directly present in public metadata, an unauthenticated response, or a recorded scanner-policy decision.",
   inferred: "An evidence-supported hypothesis; not directly established by the scanner.",
   "tested-pass": "The named harmless check passed. This is not a general security guarantee.",
-  "tested-fail": "The named harmless check failed under the recorded observation.",
+  "tested-fail": "The named harmless validation ran and failed; optional absence and scanner stops use observed instead.",
   unknown: "The available public evidence cannot determine this property.",
   "not-tested": "Outside this observatory’s safe, unauthenticated test scope.",
 };
@@ -125,7 +125,7 @@ const CSS = String.raw`
   .muted { color: var(--muted); }
   .faint { color: var(--faint); }
   .numeric { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-  .filters { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(120px, 1fr)) auto; gap: 9px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 14px; }
+  .filters { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(5, minmax(120px, 1fr)) auto; gap: 9px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 14px; }
   label { color: var(--muted); font: 650 11px/1.3 var(--mono); }
   input, select, button { font: inherit; }
   input, select { width: 100%; height: 40px; margin-top: 6px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; outline: none; color: var(--text); background: #08130f; }
@@ -369,26 +369,31 @@ function badge(value: unknown, accent = false): string {
   return `<span class="badge${accent ? " badge-accent" : ""}">${escapeHtml(text(value))}</span>`;
 }
 
-function stateBadge(value: unknown): string {
+function stateBadge(value: unknown, display?:string): string {
   const state = text(value, "unknown").toLowerCase();
   const knownState = STATE_LABELS[state] ? state : "unknown";
-  return `<span class="state state-${escapeHtml(knownState)}" title="${escapeHtml(STATE_EXPLANATIONS[knownState])}">${escapeHtml(STATE_LABELS[knownState])}</span>`;
+  return `<span class="state state-${escapeHtml(knownState)}" title="${escapeHtml(STATE_EXPLANATIONS[knownState])}">${escapeHtml(display??STATE_LABELS[knownState])}</span>`;
 }
 
 function serviceTable(payload: unknown, compact = false): string {
   const services = dataRows(payload);
   if (services.length === 0) return `<div class="panel"><div class="empty">No indexed services match this view.</div></div>`;
   return `<div class="panel table-wrap"><table>
-    <thead><tr><th>Service</th><th>Payment methods</th><th>Implementation</th><th>Endpoints</th>${compact ? "" : "<th>Last seen</th>"}</tr></thead>
+    <thead><tr><th>Service</th><th>Payment methods</th><th>Implementation</th><th>MPP endpoints</th><th>Probe evidence</th>${compact ? "" : "<th>Last seen</th>"}</tr></thead>
     <tbody>${services.map((service) => {
       const methods = stringList(service.paymentMethods ?? service.payment_methods);
       const implementation = text(service.implementation, "unknown");
       const confidence = number(service.implementation_confidence);
+      const failures=number(service.failed_checks);
+      const scannerNotes=number(service.scanner_notes);
+      const observations=number(service.observation_count);
+      const status=text(service.status,"unknown");
       return `<tr>
-        <td><a class="service-name" href="${internalServiceHref(service.id)}">${escapeHtml(text(service.name, "Unnamed service"))}</a><span class="service-origin">${escapeHtml(text(service.origin ?? service.service_url))}</span></td>
+        <td><a class="service-name" href="${internalServiceHref(service.id)}">${escapeHtml(text(service.name, "Unnamed service"))}</a><span class="service-origin">${escapeHtml(text(service.origin ?? service.service_url))}</span><div style="margin-top:7px">${badge(status,status==="observed-mpp")}</div></td>
         <td><div class="badges">${methods.length ? methods.map((method) => badge(method, true)).join("") : badge("not observed")}</div></td>
         <td>${badge(implementation)}${confidence > 0 ? `<div class="faint mono" style="margin-top:6px">${escapeHtml(Math.round(confidence * 100))}% confidence</div>` : ""}</td>
-        <td class="numeric">${escapeHtml(formatInteger(service.endpoint_count))}${number(service.failed_checks) > 0 ? `<div style="margin-top:6px">${stateBadge("tested-fail")}</div>` : ""}</td>
+        <td class="numeric">${escapeHtml(formatInteger(service.endpoint_count))}<div class="faint" style="margin-top:6px">confirmed or advertised</div></td>
+        <td><div class="badges">${badge(`${formatInteger(observations)} observation${observations===1?"":"s"}`)}${failures>0?stateBadge("tested-fail",`${formatInteger(failures)} failed validation${failures===1?"":"s"}`):""}${scannerNotes>0?stateBadge("observed",`${formatInteger(scannerNotes)} scanner stop${scannerNotes===1?"":"s"}`):""}</div></td>
         ${compact ? "" : `<td class="faint mono">${escapeHtml(shortDate(service.last_seen))}</td>`}
       </tr>`;
     }).join("")}</tbody>
@@ -426,14 +431,14 @@ export function renderDashboard(statsInput: unknown, servicesInput: unknown = {}
       <aside class="hero-note"><strong>Scanner boundary</strong>Public discovery documents, <code>GET</code>/<code>HEAD</code>, legitimate <code>402</code> challenges, redirects, and transport metadata. Never payments or signed credentials.</aside>
     </section>
     <section class="stats" aria-label="Global index statistics">
-      <article class="stat"><span class="stat-label">Indexed services</span><strong class="stat-value">${escapeHtml(formatInteger(stats.services))}</strong><span class="stat-sub">${escapeHtml(formatInteger(stats.probed_services))} safely probed · ${escapeHtml(formatInteger(stats.challenge_services))} runtime MPP</span></article>
+      <article class="stat"><span class="stat-label">Established services</span><strong class="stat-value">${escapeHtml(formatInteger(stats.established_services))}</strong><span class="stat-sub">${escapeHtml(formatInteger(stats.candidate_services))} discovery candidates tracked separately · ${escapeHtml(formatInteger(stats.challenge_services))} runtime MPP</span></article>
       <article class="stat"><span class="stat-label">Public endpoints</span><strong class="stat-value">${escapeHtml(formatInteger(stats.endpoints))}</strong><span class="stat-sub">${escapeHtml(formatInteger(stats.offers))} payment offers</span></article>
       <article class="stat"><span class="stat-label">Payment methods</span><strong class="stat-value">${escapeHtml(formatInteger(stats.payment_methods))}</strong><span class="stat-sub">Across observable configurations</span></article>
       <article class="stat"><span class="stat-label">Retained observations</span><strong class="stat-value">${escapeHtml(formatInteger(stats.observations))}</strong><span class="stat-sub">Latest: ${escapeHtml(shortDate(lastActivity))}</span></article>
     </section>
-    ${number(stats.tested_fail) > 0 ? `<div class="callout"><strong>${escapeHtml(formatInteger(stats.tested_fail))} tested-fail result${number(stats.tested_fail) === 1 ? "" : "s"}</strong> are recorded. Each applies only to its named harmless test and observation; review service evidence before drawing conclusions.</div>` : ""}
+    ${number(stats.tested_fail) > 0 ? `<div class="callout"><strong>${escapeHtml(formatInteger(stats.tested_fail))} failed validation${number(stats.tested_fail) === 1 ? "" : "s"}</strong> are recorded. Missing optional discovery documents and scanner-policy stops are not counted as validation failures; each remaining result still applies only to its named harmless check.</div>` : ""}
     <section class="section">
-      <div class="section-head"><div><p class="eyebrow">Index</p><h2>Recently observed services</h2></div><a class="text-link" href="/services">Explore all services →</a></div>
+      <div class="section-head"><div><p class="eyebrow">Index</p><h2>Recently observed established services</h2></div><a class="text-link" href="/services">Explore services →</a></div>
       ${serviceTable(servicesInput, true)}
     </section>
     <section class="section">
@@ -452,7 +457,7 @@ export function renderServices(payload: unknown, currentUrl?: URL): string {
   if (nextCursor) nextParams.set("cursor", nextCursor);
   const content = `
     <section class="detail-head">
-      <div class="detail-title"><p class="eyebrow">Public index</p><h1>Services</h1><p class="lede">${escapeHtml(formatInteger(total))} normalized services with source provenance, payment configuration, and bounded observations.</p></div>
+      <div class="detail-title"><p class="eyebrow">Public index</p><h1>Services</h1><p class="lede">${escapeHtml(formatInteger(total))} matching records. Established services have advertised or runtime MPP evidence; unconfirmed discovery leads remain available in the candidate view.</p></div>
       <a class="button" href="/submit">Submit a service</a>
     </section>
     <section class="section">
@@ -461,6 +466,7 @@ export function renderServices(payload: unknown, currentUrl?: URL): string {
         <label>Payment method<input name="method" maxlength="40" value="${escapeHtml(search.get("method") ?? "")}" placeholder="tempo"></label>
         <label>Chain<input name="chain" maxlength="80" value="${escapeHtml(search.get("chain") ?? "")}" placeholder="Chain ID"></label>
         <label>Implementation<select name="implementation">${option("", "Any", "implementation")}${option("mppx", "mppx", "implementation")}${option("mpp-rs", "mpp-rs", "implementation")}${option("mpp-proxy", "Cloudflare mpp-proxy", "implementation")}${option("custom", "Custom", "implementation")}${option("unknown", "Unknown", "implementation")}</select></label>
+        <label>Record stage<select name="stage">${option("established", "Established services", "stage")}${option("candidate", "Discovery candidates", "stage")}${option("all", "All records", "stage")}</select></label>
         <label>Evidence state<select name="security">${option("", "Any", "security")}${Object.entries(STATE_LABELS).map(([value,label]) => option(value,label,"security")).join("")}</select></label>
         <button class="filter-action" type="submit">Filter</button>
       </form>
@@ -520,10 +526,18 @@ function renderEndpoint(endpoint: DataRow): string {
   </article>`;
 }
 
+function renderObservation(observation:DataRow):string{
+  const status=observation.status===null||observation.status===undefined?"no response":`HTTP ${text(observation.status)}`;
+  const errorCode=text(observation.error_code,"");
+  const tls=row(observation.tls);
+  return `<article class="security-item"><div class="security-item-head"><h3 class="mono">${escapeHtml(text(observation.request_method,"GET"))} ${escapeHtml(text(observation.requested_url))}</h3>${errorCode?stateBadge("observed",`scanner stopped: ${errorCode}`):badge(status,true)}</div><p>${errorCode?escapeHtml(text(observation.error_detail,"The scanner stopped under its safety policy.")):`${escapeHtml(formatInteger(observation.response_bytes))} response bytes · ${escapeHtml(formatInteger(observation.redirect_count))} redirect${number(observation.redirect_count)===1?"":"s"} · ${escapeHtml(text(tls.note,"transport metadata unavailable"))}`}</p><small>${escapeHtml(formatDate(observation.observed_at))}${observation.final_url&&observation.final_url!==observation.requested_url?` · Final URL: ${escapeHtml(observation.final_url)}`:""}</small></article>`;
+}
+
 export function renderServiceDetail(serviceInput: unknown): string {
   const service = row(redactJsonValue(serviceInput));
   const endpoints = rows(service.endpoints);
   const security = rows(service.security);
+  const observations = rows(service.observations);
   const sources = rows(service.sources);
   const changes = rows(service.changes);
   const categories = stringList(service.categories);
@@ -532,6 +546,7 @@ export function renderServiceDetail(serviceInput: unknown): string {
   const endpointPage = row(service.endpointPagination);
   const endpointTotal = number(endpointPage.total);
   const securityPage = row(service.securityPagination);
+  const observationPage = row(service.observationPagination);
   const sourcePage = row(service.sourcePagination);
   const changePage = row(service.changePagination);
   const implementation = text(service.implementation, "unknown");
@@ -553,8 +568,12 @@ export function renderServiceDetail(serviceInput: unknown): string {
           <div class="fact"><dt>Tags</dt><dd><div class="badges">${tags.length ? tags.map((value) => badge(value)).join("") : `<span class="muted">None advertised</span>`}</div></dd></div>
         </dl>
         <section class="section">
-          <div class="section-head"><div><p class="eyebrow">Payment surface</p><h2>${escapeHtml(formatInteger(endpointTotal || endpoints.length))} endpoint${(endpointTotal || endpoints.length) === 1 ? "" : "s"}</h2><p>Configuration combines catalog, OpenAPI, and public challenge evidence. Runtime <code>402</code> observations are time-specific.</p>${endpointPage.nextCursor ? `<p class="muted">This bounded detail view shows ${escapeHtml(formatInteger(endpoints.length))} endpoints. Continue with <a href="/api/services/${encodeURIComponent(text(service.id))}?cursor=${encodeURIComponent(text(endpointPage.nextCursor))}">the next API page</a> or <a href="/api/endpoints?service=${encodeURIComponent(text(service.id))}">the endpoint index</a>.</p>` : ""}</div><a class="text-link" href="/api/services/${encodeURIComponent(text(service.id))}">JSON record →</a></div>
-          <div class="panel">${endpoints.length ? endpoints.map(renderEndpoint).join("") : `<div class="empty">No endpoints have been normalized for this service.</div>`}</div>
+          <div class="section-head"><div><p class="eyebrow">Payment surface</p><h2>${escapeHtml(formatInteger(endpointTotal || endpoints.length))} MPP endpoint${(endpointTotal || endpoints.length) === 1 ? "" : "s"}</h2><p>This count includes endpoints established by catalog, OpenAPI, or valid runtime <code>402</code> evidence. It does not count every URL the harmless scanner attempted.</p>${endpointPage.nextCursor ? `<p class="muted">This bounded detail view shows ${escapeHtml(formatInteger(endpoints.length))} endpoints. Continue with <a href="/api/services/${encodeURIComponent(text(service.id))}?cursor=${encodeURIComponent(text(endpointPage.nextCursor))}">the next API page</a> or <a href="/api/endpoints?service=${encodeURIComponent(text(service.id))}">the endpoint index</a>.</p>` : ""}</div><a class="text-link" href="/api/services/${encodeURIComponent(text(service.id))}">JSON record →</a></div>
+          <div class="panel">${endpoints.length ? endpoints.map(renderEndpoint).join("") : `<div class="empty">No MPP endpoint has been confirmed or advertised for this record. Review the harmless observations below to see what was actually checked.</div>`}</div>
+        </section>
+        <section class="section">
+          <div class="section-head"><div><p class="eyebrow">Probe coverage</p><h2>${escapeHtml(formatInteger(number(observationPage.total)||observations.length))} harmless observation${(number(observationPage.total)||observations.length)===1?"":"s"}</h2><p>These are bounded unauthenticated requests and scanner-policy stops. A response without MPP evidence remains a discovery result, not a security failure.</p></div></div>
+          <div class="security-list">${observations.length?observations.map(renderObservation).join(""):`<div class="panel"><div class="empty">No probe observation has completed for this record yet.</div></div>`}${observationPage.truncated?`<div class="panel"><div class="empty">Showing the latest ${escapeHtml(formatInteger(observations.length))} of ${escapeHtml(formatInteger(observationPage.total))} observations.</div></div>`:""}</div>
         </section>
         <section class="section">
           <div class="section-head"><div><p class="eyebrow">Evidence model</p><h2>Security properties</h2><p>Every result names its evidence state. Unknown and not tested never mean secure.</p></div></div>

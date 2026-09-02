@@ -14,6 +14,7 @@ export interface ListParams {
   chain?: string;
   implementation?: string;
   securityState?: string;
+  stage?: "established" | "candidate" | "all";
   limit: number;
   offset: number;
 }
@@ -22,6 +23,7 @@ export interface DetailParams { limit: number; offset: number }
 const DETAIL_OFFER_LIMIT = 12;
 const DETAIL_SOURCE_LIMIT = 100;
 const DETAIL_SECURITY_LIMIT = 250;
+const DETAIL_OBSERVATION_LIMIT = 50;
 const DETAIL_CHANGE_LIMIT = 50;
 const SERVICE_PAYMENT_METHOD_LIMIT = 16;
 
@@ -48,9 +50,14 @@ export function parsePage(url: URL): ListParams {
     chain: clean(url.searchParams.get("chain"), 80),
     implementation: clean(url.searchParams.get("implementation"), 40),
     securityState: clean(url.searchParams.get("security"), 40),
+    stage: serviceStage(url.searchParams.get("stage")),
     limit,
     offset: decodeCursor(url.searchParams.get("cursor")),
   };
+}
+
+function serviceStage(value:string|null):ListParams["stage"]{
+  return value==="established"||value==="candidate"||value==="all"?value:undefined;
 }
 
 export function parseDetailPage(url:URL):DetailParams{return{limit:Math.min(50,parseLimit(url.searchParams.get("limit"),25)),offset:decodeCursor(url.searchParams.get("cursor"))};}
@@ -86,6 +93,8 @@ function whereForServices(params: ListParams): { sql: string; binds: unknown[] }
     clauses.push("EXISTS (SELECT 1 FROM security_properties sp WHERE sp.service_id=s.id AND sp.state=?)");
     binds.push(params.securityState);
   }
+  if(params.stage==="established")clauses.push("s.status NOT IN ('candidate','pending','unconfirmed')");
+  if(params.stage==="candidate")clauses.push("s.status IN ('candidate','pending','unconfirmed')");
   return { sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", binds };
 }
 
@@ -100,6 +109,8 @@ export async function listServices(db: D1Database, params: ListParams): Promise<
       SELECT s.*,
         (SELECT COUNT(*) FROM endpoints e WHERE e.service_id=s.id AND ${ACTIVE_ENDPOINT_SQL}) AS endpoint_count,
         (SELECT COUNT(*) FROM security_properties sp WHERE sp.service_id=s.id AND sp.state='tested-fail') AS failed_checks,
+        (SELECT COUNT(*) FROM security_properties sp WHERE sp.service_id=s.id AND sp.property_key='probe_safety' AND sp.state='observed') AS scanner_notes,
+        (SELECT COUNT(*) FROM observations observation WHERE observation.service_id=s.id) AS observation_count,
         (SELECT group_concat(method) FROM (
           SELECT po.method AS method FROM endpoints e JOIN active_payment_offers po ON po.endpoint_id=e.id
           WHERE e.service_id=s.id AND ${ACTIVE_ENDPOINT_SQL}
@@ -129,7 +140,7 @@ export async function getService(db: D1Database, id: string, requested:Partial<D
   if (!service) return null;
   const limit=Math.min(50,Math.max(1,Math.trunc(requested.limit??25)));
   const offset=Math.min(1_000_000,Math.max(0,Math.trunc(requested.offset??0)));
-  const [endpoints, sources, security, changes, counts] = await Promise.all([
+  const [endpoints, sources, security, observations, changes, counts] = await Promise.all([
     db.prepare(`SELECT e.*,
       (SELECT json_group_array(json_object('id',p.id,'method',p.method,'intent',p.intent,'currency',p.currency,'chainId',p.chain_id,'recipient',p.recipient,'amount',p.amount,'decimals',p.decimals,'unitType',p.unit_type,'session',json(p.session_json),'sourceType',p.source_type,'sourceRef',p.source_ref,'sourceOrdinal',p.source_ordinal,'firstSeen',p.first_seen,'lastSeen',p.last_seen)) FROM (SELECT * FROM active_payment_offers po WHERE po.endpoint_id=e.id ORDER BY po.source_type,po.source_ref,po.source_ordinal,po.id LIMIT ${DETAIL_OFFER_LIMIT}) p) AS offers_json,
       (SELECT COUNT(*) FROM active_payment_offers p WHERE p.endpoint_id=e.id) AS offer_count,
@@ -138,12 +149,14 @@ export async function getService(db: D1Database, id: string, requested:Partial<D
       FROM endpoints e WHERE e.service_id=? AND ${ACTIVE_ENDPOINT_SQL} ORDER BY e.path,e.http_method,e.id LIMIT ? OFFSET ?`).bind(id,limit,offset).all<Record<string, unknown>>(),
     db.prepare("SELECT source_kind,source_url,evidence_json,first_seen,last_seen FROM sources WHERE service_id=? ORDER BY source_kind,source_url LIMIT ?").bind(id,DETAIL_SOURCE_LIMIT).all<Record<string, unknown>>(),
     db.prepare("SELECT property_key,state,evidence,basis,advisory_ref,observed_at,endpoint_id FROM security_properties WHERE service_id=? ORDER BY observed_at DESC,property_key LIMIT ?").bind(id,DETAIL_SECURITY_LIMIT).all<Record<string, unknown>>(),
+    db.prepare("SELECT id,endpoint_id,observed_at,request_method,requested_url,final_url,status,headers_json,dns_json,tls_json,redirect_count,response_bytes,body_sha256,error_code,error_detail FROM observations WHERE service_id=? ORDER BY observed_at DESC,id LIMIT ?").bind(id,DETAIL_OBSERVATION_LIMIT).all<Record<string, unknown>>(),
     db.prepare("SELECT id,endpoint_id,changed_at,change_type,field_name,old_value,new_value,evidence FROM changes WHERE service_id=? ORDER BY changed_at DESC,id LIMIT ?").bind(id,DETAIL_CHANGE_LIMIT).all<Record<string, unknown>>(),
     db.prepare(`SELECT
       (SELECT COUNT(*) FROM endpoints e WHERE e.service_id=? AND ${ACTIVE_ENDPOINT_SQL}) AS endpoints,
       (SELECT COUNT(*) FROM sources WHERE service_id=?) AS sources,
       (SELECT COUNT(*) FROM security_properties WHERE service_id=?) AS security,
-      (SELECT COUNT(*) FROM changes WHERE service_id=?) AS changes`).bind(id,id,id,id).first<{endpoints:number;sources:number;security:number;changes:number}>(),
+      (SELECT COUNT(*) FROM observations WHERE service_id=?) AS observations,
+      (SELECT COUNT(*) FROM changes WHERE service_id=?) AS changes`).bind(id,id,id,id,id).first<{endpoints:number;sources:number;security:number;observations:number;changes:number}>(),
   ]);
   const endpointTotal=Number(counts?.endpoints??0);
   return {
@@ -154,6 +167,8 @@ export async function getService(db: D1Database, id: string, requested:Partial<D
     sourcePagination:{limit:DETAIL_SOURCE_LIMIT,total:Number(counts?.sources??0),truncated:Number(counts?.sources??0)>sources.results.length},
     security: security.results,
     securityPagination:{limit:DETAIL_SECURITY_LIMIT,total:Number(counts?.security??0),truncated:Number(counts?.security??0)>security.results.length},
+    observations: observations.results.map(hydrateObservationRow),
+    observationPagination:{limit:DETAIL_OBSERVATION_LIMIT,total:Number(counts?.observations??0),truncated:Number(counts?.observations??0)>observations.results.length},
     changes: changes.results,
     changePagination:{limit:DETAIL_CHANGE_LIMIT,total:Number(counts?.changes??0),truncated:Number(counts?.changes??0)>changes.results.length},
   };
@@ -206,11 +221,12 @@ export async function listChanges(db: D1Database, url: URL): Promise<Record<stri
 export async function getStats(db: D1Database): Promise<Record<string, unknown>> {
   const row = await db.prepare(`SELECT
     (SELECT COUNT(*) FROM services WHERE published=1) AS services,
+    (SELECT COUNT(*) FROM services WHERE published=1 AND status NOT IN ('candidate','pending','unconfirmed')) AS established_services,
     (SELECT COUNT(*) FROM endpoints e WHERE ${ACTIVE_ENDPOINT_SQL}) AS endpoints,
     (SELECT COUNT(*) FROM active_payment_offers p JOIN endpoints e ON e.id=p.endpoint_id WHERE ${ACTIVE_ENDPOINT_SQL}) AS offers,
     (SELECT COUNT(*) FROM observations observation JOIN services observed_service ON observed_service.id=observation.service_id WHERE observed_service.published=1) AS observations,
     (SELECT COUNT(*) FROM services WHERE published=1 AND last_probe_at IS NOT NULL) AS probed_services,
-    (SELECT COUNT(*) FROM services WHERE published=1 AND status='candidate') AS candidate_services,
+    (SELECT COUNT(*) FROM services WHERE published=1 AND status IN ('candidate','pending','unconfirmed')) AS candidate_services,
     (SELECT COUNT(*) FROM services s WHERE s.published=1 AND (s.status='observed-mpp' OR EXISTS (SELECT 1 FROM endpoints e JOIN active_endpoint_sources es ON es.endpoint_id=e.id AND es.source_type='challenge' WHERE e.service_id=s.id AND e.challenge_format='mpp-payment-auth'))) AS challenge_services,
     (SELECT COUNT(DISTINCT e.service_id) FROM endpoints e WHERE e.last_status IS NOT NULL AND ${ACTIVE_ENDPOINT_SQL}) AS endpoint_probed_services,
     (SELECT COUNT(*) FROM security_properties property JOIN services secured_service ON secured_service.id=property.service_id WHERE secured_service.published=1 AND property.state='tested-fail') AS tested_fail,
@@ -802,4 +818,7 @@ function extractSession(value:Record<string,unknown>,details:Record<string,unkno
 function openApiEndpointUrl(baseUrl:string,path:string):string{if(!path.startsWith("/")||path.length>2_048||/[?#]/.test(path))throw new ScanSafetyError("invalid-openapi-path","OpenAPI paths must be bounded query-free absolute paths");const base=new URL(normalizeDiscoveryUrl(baseUrl));const basePath=base.pathname.replace(/\/$/,"");base.pathname=`${basePath}/${path.replace(/^\//,"")}`.replace(/\/{2,}/g,"/");base.search="";base.hash="";const normalized=normalizeUrl(base.toString());if(redactUrlForStorage(normalized)!==normalized)throw new ScanSafetyError("credential-shaped-openapi-path","Credential-shaped OpenAPI paths are not persisted or probed");return normalized;}
 function stripQueryForEvidence(value:string):string{return redactUrlForStorage(value);}
 function withoutJsonColumn(row:Record<string,unknown>,column:string,key:string,fallback:unknown):Record<string,unknown>{const copy={...row};const value=copy[column];delete copy[column];copy[key]=parseJson(value,fallback);return copy;}
+function hydrateObservationRow(row:Record<string,unknown>):Record<string,unknown>{
+  return withoutJsonColumn(withoutJsonColumn(withoutJsonColumn(row,"headers_json","headers",{}),"dns_json","dns",[]),"tls_json","tls",{});
+}
 function hydrateEndpointRow(row:Record<string,unknown>):Record<string,unknown>{const offers=withoutJsonColumn(withoutJsonColumn(row,"offers_json","offers",[]),"active_sources_json","activeSources",[]);const offerTotal=Number(offers.offer_count??0);const sourceTotal=Number(offers.active_source_count??0);delete offers.offer_count;delete offers.active_source_count;return{...offers,offerPagination:{limit:DETAIL_OFFER_LIMIT,total:offerTotal,truncated:offerTotal>DETAIL_OFFER_LIMIT},activeSourcePagination:{limit:32,total:sourceTotal,truncated:sourceTotal>32}};}

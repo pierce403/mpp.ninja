@@ -147,7 +147,7 @@ Session and streaming metrics are derived only when the required public numeric 
 
 ## Public interface
 
-Server-rendered pages cover the dashboard, services/search, service details, payment configuration, implementation concentration, recent changes, methodology, and submission. The minimum read-only JSON interface is:
+Server-rendered pages cover the dashboard, services/search, service details, payment configuration, implementation concentration, recent changes, methodology, and submission. The human dashboard and service index default to established records; unconfirmed MPPScan/manual leads remain available through the explicit candidate filter with their bounded observations. Endpoint totals count only current advertised or valid runtime-challenge authority, while probe coverage is reported separately. The minimum read-only JSON interface is:
 
 - `/api/services`
 - `/api/services/:id`

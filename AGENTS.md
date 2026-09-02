@@ -61,6 +61,7 @@ Use Node 24 as specified by `.nvmrc`. Node 23 is unsupported by current Vitest a
 - Treat a live-catalog endpoint with `payment: null` as an endpoint without an advertised offer. Keep complete per-source and whole-catalog barriers authoritative: partial runs do not withdraw current data, and delayed older messages must not resurrect a newer completed withdrawal.
 - Preserve provenance and evidence layers: catalog and OpenAPI values are advertised, while a runtime `402` challenge is a time-specific observation.
 - Use only `observed`, `inferred`, `tested-pass`, `tested-fail`, `unknown`, and `not-tested` for security-property state. A missing, unknown, or untested result never means secure.
+- Reserve `tested-fail` for a named harmless validation that actually ran against a claimed structure. Record an absent optional discovery document and a scanner-policy stop as `observed`, retain the exact reason, and keep unconfirmed discovery candidates separate from the default established-service view.
 - Keep fingerprints conservative and version-agnostic. Arbitrary OpenAPI prose is not product evidence; only explicit headers, valid challenge markers, or named implementation/generator fields qualify. Public advisories are prior art until observable evidence establishes target and version applicability.
 - Derive session or streaming economic metrics only from public numeric inputs and publish the formula; otherwise store `unknown`.
 - Commit durable project knowledge when the repository workflow calls for it.

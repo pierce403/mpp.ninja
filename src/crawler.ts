@@ -3,7 +3,7 @@ import { crawlTargetId, enqueueCompletedSnapshotTargets, enqueueTarget, sendBoun
 import { MAX_UNCONFIRMED_MANUAL_ATTEMPTS } from "./budgets";
 import { challengeToOffer, economicRiskMetadata, fingerprintImplementation, ingestApiCatalog, ingestOpenApi, isSupportedApiCatalogDocument, isSupportedOpenApiDocument, isValidPaymentChallenge, parsePaymentChallenges } from "./mpp";
 import type { ApiCatalogLinkMessage, CrawlMessage, Fingerprint, IngestedOperation, OpenApiOperationMessage, ProbeResult, SecurityState } from "./model";
-import { MAX_DISCOVERY_BYTES, MAX_REDIRECTS, MAX_RESPONSE_BYTES, PROBE_TIMEOUT_MS, ScanSafetyError, normalizeDiscoveryUrl, normalizeUrl, readBoundedBody, redactHeaders, redactJsonValue, redactUrlForStorage, resolvePublicHostname, safeJson, sha256, type DnsResolver } from "./security";
+import { MAX_DISCOVERY_BYTES, MAX_REDIRECTS, MAX_RESPONSE_BYTES, PROBE_TIMEOUT_MS, ScanSafetyError, normalizeDiscoveryUrl, normalizeUrl, readBoundedBody, redactHeaders, redactJsonValue, redactText, redactUrlForStorage, resolvePublicHostname, safeJson, sha256, type DnsResolver } from "./security";
 import { expireManualCandidates, hasUnconfirmedManualSubmission, isRestrictedManualCandidate, markManualServiceConfirmed, serviceAllowsDerivedDiscovery } from "./submissions";
 
 const ORIGIN_COOLDOWN_MS = 30_000;
@@ -15,7 +15,7 @@ export class RetryableCrawlError extends Error {
 
 type ProbeDependencies = typeof fetch | { fetcher?: typeof fetch; resolver?: DnsResolver; onOrigin?: (origin:string)=>Promise<void> };
 type PublicServiceInfo={name?:string;description?:string;version?:string};
-interface DiscoveryStage { state:"tested-pass"|"tested-fail"; evidence:string; sourceRef:string; finalUrl:string; authoritativeEmpty?:boolean; baseUrl?:string; operations?:IngestedOperation[]; serviceInfo?:PublicServiceInfo|null; urls?:string[]; urlsRedacted?:boolean }
+interface DiscoveryStage { state:"observed"|"tested-pass"|"tested-fail"; evidence:string; sourceRef:string; finalUrl:string; authoritativeEmpty?:boolean; baseUrl?:string; operations?:IngestedOperation[]; serviceInfo?:PublicServiceInfo|null; urls?:string[]; urlsRedacted?:boolean }
 interface ProbeStage {
   schemaVersion:2;
   id:string;
@@ -151,22 +151,27 @@ export async function processCrawlMessage(env: Env, message: CrawlMessage): Prom
   serviceId = await ensureManualService(env.DB, serviceId, targetUrl, message.source,Boolean(message.serviceId),observedAt);
   const wasUnconfirmedManual=await hasUnconfirmedManualSubmission(env.DB,serviceId);
   const r2Key=`observations/${observedAt.slice(0,10).replace(/-/g,"/")}/${serviceId}/${observationId}.json`;
+  let hasProbeResult=false;
   try {
     let stage=await loadProbeStage(env.OBSERVATIONS,r2Key,observationId,runId);
+    hasProbeResult=Boolean(stage);
     if(!stage){
       const result=await safeProbe(target,message.kind,{onOrigin:(origin)=>acquireOriginLease(env.DB,origin)});
+      hasProbeResult=true;
       let openApiDocument:unknown;
       let discovery:DiscoveryStage|undefined;
       if(message.kind==="openapi"&&result.status>=200&&result.status<300){
-        try{const document:unknown=JSON.parse(result.bodyText);if(!isSupportedOpenApiDocument(document))discovery={state:"tested-fail",evidence:"Response was JSON but not a bounded supported OpenAPI 3 document",sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};else{openApiDocument=document;const operations=ingestOpenApi(document);discovery={state:"tested-pass",evidence:`${operations.reduce((sum,operation)=>sum+operation.offers.length,0)} payment offer(s) accepted`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,baseUrl:openApiServerBase(document,result.finalUrl),operations,serviceInfo:publicServiceInfo(document)};}}
-        catch{discovery={state:"tested-fail",evidence:"OpenAPI response was not valid JSON",sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};}
+        const claimedJson=isJsonDiscoveryResponse(result.headers["content-type"],"openapi");
+        try{const document:unknown=JSON.parse(result.bodyText);if(!isSupportedOpenApiDocument(document))discovery={state:claimedJson?"tested-fail":"observed",evidence:claimedJson?"Response was JSON but not a bounded supported OpenAPI 3 document":`Conventional OpenAPI path returned ${result.status} ${result.headers["content-type"]??"without a content type"}; no OpenAPI document was established`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};else{openApiDocument=document;const operations=ingestOpenApi(document);discovery={state:"tested-pass",evidence:`${operations.reduce((sum,operation)=>sum+operation.offers.length,0)} payment offer(s) accepted`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,baseUrl:openApiServerBase(document,result.finalUrl),operations,serviceInfo:publicServiceInfo(document)};}}
+        catch{discovery={state:claimedJson?"tested-fail":"observed",evidence:claimedJson?"OpenAPI response claimed JSON but was not valid JSON":`Conventional OpenAPI path returned ${result.status} ${result.headers["content-type"]??"without a content type"}; no OpenAPI document was established`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};}
       }else if(message.kind==="openapi"&&(result.status===404||result.status===410)){
-        discovery={state:"tested-fail",evidence:`OpenAPI source returned HTTP ${result.status}; prior advertised operations were withdrawn`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};
+        discovery={state:"observed",evidence:`No OpenAPI document was available at this URL (HTTP ${result.status}); prior advertised operations were withdrawn`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};
       }else if(message.kind==="api-catalog"&&result.status>=200&&result.status<300){
-        try{const document:unknown=JSON.parse(result.bodyText);if(!isSupportedApiCatalogDocument(document))discovery={state:"tested-fail",evidence:"Response was JSON but not a bounded RFC 9727 linkset",sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};else{const urls=ingestApiCatalog(document,result.finalUrl);discovery={state:"tested-pass",evidence:`${urls.length} OpenAPI link(s) accepted`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,urls};}}
-        catch{discovery={state:"tested-fail",evidence:"API catalog response was not valid JSON",sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};}
+        const claimedJson=isJsonDiscoveryResponse(result.headers["content-type"],"api-catalog");
+        try{const document:unknown=JSON.parse(result.bodyText);if(!isSupportedApiCatalogDocument(document))discovery={state:claimedJson?"tested-fail":"observed",evidence:claimedJson?"Response was JSON but not a bounded RFC 9727 linkset":`RFC 9727 well-known path returned ${result.status} ${result.headers["content-type"]??"without a content type"}; no API catalog was established`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};else{const urls=ingestApiCatalog(document,result.finalUrl);discovery={state:"tested-pass",evidence:`${urls.length} OpenAPI link(s) accepted`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,urls};}}
+        catch{discovery={state:claimedJson?"tested-fail":"observed",evidence:claimedJson?"API catalog response claimed JSON but was not valid JSON":`RFC 9727 well-known path returned ${result.status} ${result.headers["content-type"]??"without a content type"}; no API catalog was established`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};}
       }else if(message.kind==="api-catalog"&&(result.status===404||result.status===410)){
-        discovery={state:"tested-fail",evidence:`API catalog source returned HTTP ${result.status}; prior advertised links were withdrawn`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};
+        discovery={state:"observed",evidence:`No RFC 9727 API catalog was available at this URL (HTTP ${result.status}); prior advertised links were withdrawn`,sourceRef:result.requestedUrl,finalUrl:result.finalUrl,authoritativeEmpty:true};
       }
       const endpointId=message.endpointId??(message.kind==="endpoint"?await sha256(`${serviceId}|${result.method}|${result.requestedUrl}`):null);
       const {bodyText,...rawStoredResult}=result;
@@ -226,7 +231,13 @@ export async function processCrawlMessage(env: Env, message: CrawlMessage): Prom
     const fallbackStatus=error instanceof ScanSafetyError?"rejected":"retry";
     const retryAt=new Date(Date.now()+ORIGIN_COOLDOWN_MS).toISOString();
     const failed=stableQueuedRun?await env.DB.prepare("UPDATE crawl_targets SET status=CASE WHEN ?=1 AND attempt_count>=? THEN 'retired' ELSE ? END,attempt_count=attempt_count+1,last_attempt_at=?,last_error=?,next_due_at=CASE WHEN ?=1 AND attempt_count>=? THEN NULL ELSE ? END,processing_token=NULL,processing_expires_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND run_id=? AND status='processing' AND processing_token=? RETURNING status").bind(manualRetry?1:0,MAX_UNCONFIRMED_MANUAL_ATTEMPTS-1,fallbackStatus,observedAt,`${code}:${detail}`,manualRetry?1:0,MAX_UNCONFIRMED_MANUAL_ATTEMPTS-1,retryAt,targetId,runId,processingToken).first<{status:string}>():await env.DB.prepare("UPDATE crawl_targets SET status=CASE WHEN ?=1 AND attempt_count>=? THEN 'retired' ELSE ? END,attempt_count=attempt_count+1,last_attempt_at=?,last_error=?,next_due_at=CASE WHEN ?=1 AND attempt_count>=? THEN NULL ELSE ? END,updated_at=CURRENT_TIMESTAMP WHERE id=? RETURNING status").bind(manualRetry?1:0,MAX_UNCONFIRMED_MANUAL_ATTEMPTS-1,fallbackStatus,observedAt,`${code}:${detail}`,manualRetry?1:0,MAX_UNCONFIRMED_MANUAL_ATTEMPTS-1,retryAt,targetId).first<{status:string}>();
-    if(!stableQueuedRun||failed){await env.DB.prepare("UPDATE submissions SET status=?,last_error=? WHERE normalized_url=? OR service_id=?").bind(failed?.status==="retired"?"rejected":fallbackStatus,`${code}:${detail}`,target,serviceId).run();if(error instanceof ScanSafetyError)await setSecurity(env.DB,serviceId,message.endpointId??null,"probe_safety","tested-fail",detail,"scanner execution",null,observedAt);}
+    if(!stableQueuedRun||failed){
+      await env.DB.prepare("UPDATE submissions SET status=?,last_error=? WHERE normalized_url=? OR service_id=?").bind(failed?.status==="retired"?"rejected":fallbackStatus,`${code}:${detail}`,target,serviceId).run();
+      if(error instanceof ScanSafetyError&&!hasProbeResult){
+        await setSecurity(env.DB,serviceId,message.endpointId??null,"probe_safety","observed",`${code}: ${detail}`,"scanner policy decision",null,observedAt);
+        await recordRejectedObservation(env.DB,{id:observationId,serviceId,endpointId:message.endpointId??null,observedAt,method:message.kind==="homepage"?"HEAD":"GET",target,code,detail});
+      }
+    }
     if(restrictedManual&&(failed?.status==="retired"||failed?.status==="rejected"))await retireUnconfirmedManualTarget(env.DB,targetId,serviceId,target);
     if(manualRetry&&failed?.status==="retired")return;
     throw error;
@@ -253,7 +264,7 @@ function discoveryForStorage(discovery:DiscoveryStage):DiscoveryStage{
   const sourceUnsafe=sourceRef!==discovery.sourceRef;
   const baseUnsafe=Boolean(discovery.baseUrl&&baseUrl!==discovery.baseUrl);
   const urlsRedacted=Boolean(discovery.urlsRedacted||sourceUnsafe||finalUrl!==discovery.finalUrl||baseUnsafe||safeUrls?.length!==discovery.urls?.length);
-  if(sourceUnsafe||baseUnsafe)return{...discovery,state:"tested-fail",evidence:"Credential-shaped discovery URL was excluded from indexing and fan-out",sourceRef,finalUrl,authoritativeEmpty:false,operations:[],urls:[],urlsRedacted:true,baseUrl:undefined};
+  if(sourceUnsafe||baseUnsafe)return{...discovery,state:"observed",evidence:"Credential-shaped discovery URL was excluded from indexing and fan-out by scanner policy",sourceRef,finalUrl,authoritativeEmpty:false,operations:[],urls:[],urlsRedacted:true,baseUrl:undefined};
   return{...discovery,sourceRef,finalUrl,...(baseUrl?{baseUrl}:{}),...(safeUrls?{urls:safeUrls}:{}),...(urlsRedacted?{urlsRedacted:true}:{})};
 }
 async function loadProbeStage(bucket:R2Bucket,key:string,id:string,runId:string):Promise<ProbeStage|null>{
@@ -348,7 +359,9 @@ async function writeSecurityProperties(db:D1Database,serviceId:string,endpointId
   await setSecurity(db,serviceId,endpointId,"redirect_policy","tested-pass",`${result.redirects.length} redirects; every hop passed URL and DNS validation`,"harmless scanner",null,now);
   await setSecurity(db,serviceId,endpointId,"bounded_response","tested-pass",`${result.responseBytes} bytes within scanner limit`,"harmless scanner",null,now);
   const challengeState:SecurityState=result.challenges.length===0?"unknown":result.status!==402||result.challenges.some((c)=>c.parseError)?"tested-fail":"tested-pass";
-  await setSecurity(db,serviceId,endpointId,"challenge_parse",challengeState,result.challenges.length?`${result.challenges.length} Payment challenge(s) observed on HTTP ${result.status}`:"No MPP Payment challenge observed","unauthenticated HTTP response",null,now);
+  const challengeErrors=[...new Set(result.challenges.flatMap((challenge)=>challenge.parseError?[challenge.parseError]:[]))];
+  const challengeEvidence=result.challenges.length?`${result.challenges.length} Payment challenge(s) observed on HTTP ${result.status}${challengeErrors.length?`; invalid structure: ${challengeErrors.join(", ")}`:result.status!==402?"; Payment authentication requires HTTP 402":"; all required fields decoded and validated"}`:"No MPP Payment challenge observed";
+  await setSecurity(db,serviceId,endpointId,"challenge_parse",challengeState,challengeEvidence,"unauthenticated HTTP response",null,now);
   await setSecurity(db,serviceId,endpointId,"credential_replay","not-tested","Scanner never sends credentials or payments","methodology","https://github.com/advisories/GHSA-fxc9-7j2w-vx54",now);
   await setSecurity(db,serviceId,endpointId,"authorization_delivery_settlement","not-tested","Requires paid or state-changing behavior outside scanner scope","Tempo Aug 24 research class","https://github.com/wevm/mppx/pull/510#discussion_r3377899233",now);
   await setSecurity(db,serviceId,endpointId,"price_debit_consistency","not-tested","Requires a completed paid interaction outside scanner scope","public economic-security prior art",null,now);
@@ -368,6 +381,20 @@ async function setSecurity(db:D1Database,serviceId:string,endpointId:string|null
   const id=await sha256(`${serviceId}|${endpointId??"service"}|${key}`);
   const boundedEvidence=evidence.slice(0,2_000);const boundedBasis=basis.slice(0,500);
   await db.prepare("INSERT INTO security_properties (id,service_id,endpoint_id,property_key,state,evidence,basis,advisory_ref,observed_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,evidence=excluded.evidence,basis=excluded.basis,advisory_ref=excluded.advisory_ref,observed_at=excluded.observed_at WHERE excluded.observed_at>security_properties.observed_at OR (excluded.observed_at=security_properties.observed_at AND (excluded.state||char(0)||excluded.evidence||char(0)||excluded.basis)>(security_properties.state||char(0)||security_properties.evidence||char(0)||security_properties.basis))").bind(id,serviceId,endpointId,key,state,boundedEvidence,boundedBasis,advisory,now).run();
+}
+
+function isJsonDiscoveryResponse(contentType:string|undefined,kind:"openapi"|"api-catalog"):boolean{
+  const media=(contentType??"").split(";",1)[0].trim().toLowerCase();
+  return media==="application/json"||media.endsWith("+json")||(kind==="openapi"&&media.includes("openapi"))||(kind==="api-catalog"&&media==="application/linkset+json");
+}
+
+async function recordRejectedObservation(db:D1Database,input:{id:string;serviceId:string;endpointId:string|null;observedAt:string;method:"GET"|"HEAD";target:string;code:string;detail:string}):Promise<void>{
+  const detail=redactText(input.detail).slice(0,500);
+  await db.prepare(`INSERT INTO observations
+    (id,service_id,endpoint_id,observed_at,request_method,requested_url,final_url,status,headers_json,challenge_json,dns_json,tls_json,redirect_count,response_bytes,body_sha256,raw_r2_key,error_code,error_detail)
+    VALUES (?,?,?,?,?,?,NULL,NULL,'{}','[]','[]','{}',0,0,'',NULL,?,?)
+    ON CONFLICT(id) DO UPDATE SET endpoint_id=excluded.endpoint_id,observed_at=excluded.observed_at,request_method=excluded.request_method,requested_url=excluded.requested_url,final_url=NULL,status=NULL,headers_json='{}',challenge_json='[]',dns_json='[]',tls_json='{}',redirect_count=0,response_bytes=0,body_sha256='',raw_r2_key=NULL,error_code=excluded.error_code,error_detail=excluded.error_detail`)
+    .bind(input.id,input.serviceId,input.endpointId,input.observedAt,input.method,redactUrlForStorage(input.target),input.code.slice(0,100),detail).run();
 }
 
 function openApiServerBase(document:unknown,documentUrl:string):string{if(document&&typeof document==="object"&&!Array.isArray(document)){const servers=(document as Record<string,unknown>).servers;if(Array.isArray(servers)){for(const item of servers.slice(0,8)){if(item&&typeof item==="object"&&!Array.isArray(item)){const value=(item as Record<string,unknown>).url;if(typeof value==="string"&&value&&!/[{}]/.test(value)){try{return normalizeDiscoveryUrl(new URL(value,documentUrl).toString());}catch{ /* fall through */ }}}}}}return new URL(documentUrl).origin;}

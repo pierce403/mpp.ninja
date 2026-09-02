@@ -24,6 +24,25 @@ describe("mpp.ninja Worker routes", () => {
     }
   });
 
+  it("keeps unconfirmed discovery leads out of the default service view while exposing their probe coverage",async()=>{
+    const now="2026-09-02T00:00:00.000Z";
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO services (id,name,service_url,origin,status,first_seen,last_seen) VALUES ('ui-established','UI Established','https://ui-established.example/','https://ui-established.example','active',?,?)").bind(now,now),
+      env.DB.prepare("INSERT INTO services (id,name,service_url,origin,status,first_seen,last_seen) VALUES ('ui-candidate','UI Candidate','https://ui-candidate.example/','https://ui-candidate.example','candidate',?,?)").bind(now,now),
+    ]);
+
+    const established=await SELF.fetch("https://mpp.ninja/services").then((response)=>response.text());
+    expect(established).toContain("UI Established");
+    expect(established).not.toContain("UI Candidate");
+    expect(established).toContain("MPP endpoints");
+    expect(established).toContain("Probe evidence");
+
+    const candidates=await SELF.fetch("https://mpp.ninja/services?stage=candidate").then((response)=>response.text());
+    expect(candidates).toContain("UI Candidate");
+    expect(candidates).toContain("0 observations");
+    expect(candidates).toContain("confirmed or advertised");
+  });
+
   it("supports HEAD without exposing a body", async () => {
     const result=await SELF.fetch("https://mpp.ninja/api/stats",{method:"HEAD"});
     expect(result.status).toBe(200);

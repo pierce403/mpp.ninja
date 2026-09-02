@@ -24,5 +24,6 @@ directories:
 - Runtime observed-MPP classification requires HTTP `402` and the current draft's structural challenge fields (`id`, `realm`, lowercase `method`, valid `intent` syntax, and a decodable JSON `request`).
 - The verified live mpp.dev shape includes `payment: null` for endpoints without an advertised offer. Payment challenge parsing must isolate valid Payment challenges in mixed authentication-scheme headers, and high-confidence OpenAPI fingerprints require named implementation/generator fields rather than arbitrary prose.
 - Security properties use only `observed`, `inferred`, `tested-pass`, `tested-fail`, `unknown`, or `not-tested`. Fingerprints are evidence-scored and version-agnostic; public advisories and economic-security research classes are prior art unless direct evidence establishes applicability.
+- Optional OpenAPI/RFC 9727 absence and scanner-policy stops are observed discovery facts, not failed endpoint validations. The human service index defaults to established records; candidate leads remain separately inspectable with bounded probe observations, and MPP endpoint counts include only current advertised or valid challenge authority.
 - Use Node 24 from `.nvmrc`; Node 23 is unsupported by the current test stack.
 - `AGENTS.md` is the canonical operating guide; `FEATURES.md` is the product and acceptance tracker.

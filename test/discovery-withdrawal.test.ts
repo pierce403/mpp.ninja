@@ -124,14 +124,15 @@ async function expectWithdrawnWithHistory(serviceId: string): Promise<void> {
 }
 
 const laterResponses = [
-  { name: "invalid 200", status: 200, body: "{}", withdraws: true },
-  { name: "HTTP 404", status: 404, body: "not found", withdraws: true },
-  { name: "transient HTTP 500", status: 500, body: "temporary", withdraws: false },
+  { name: "invalid JSON 200", status: 200, body: "{}", contentType:"application/json", withdraws: true, state:"tested-fail" },
+  { name: "ordinary HTML 200", status: 200, body: "<html>not a discovery document</html>", contentType:"text/html", withdraws: true, state:"observed" },
+  { name: "HTTP 404", status: 404, body: "not found", contentType:"text/plain", withdraws: true, state:"observed" },
+  { name: "transient HTTP 500", status: 500, body: "temporary", contentType:"text/plain", withdraws: false, state:null },
 ] as const;
 
 describe("authoritative discovery absence", () => {
-  it.each(laterResponses)("reconciles an OpenAPI source after $name", async ({ status, body, withdraws }) => {
-    const serviceId = `openapi-authoritative-${status}`;
+  it.each(laterResponses)("reconciles an OpenAPI source after $name", async ({ name, status, body, contentType, withdraws, state }) => {
+    const serviceId = `openapi-authoritative-${name.replace(/[^a-z0-9]+/gi,"-").toLowerCase()}`;
     const serviceUrl = `https://1.1.1.1/${serviceId}/`;
     const sourceRef = `${serviceUrl}openapi.json`;
     await insertService(serviceId, serviceUrl);
@@ -150,7 +151,7 @@ describe("authoritative discovery absence", () => {
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       const requested = input instanceof Request ? input.url : input.toString();
       if (requested !== sourceRef) throw new Error(`unexpected fetch: ${requested}`);
-      return new Response(body, { status, headers: { "Content-Type": "application/json" } });
+      return new Response(body, { status, headers: { "Content-Type": contentType } });
     });
     await env.DB.prepare("DELETE FROM origin_rate_limits WHERE origin=?").bind(new URL(sourceRef).origin).run();
     await processCrawlMessage(bindings, next);
@@ -161,7 +162,7 @@ describe("authoritative discovery absence", () => {
       .bind(serviceId)
       .first<{ state: string }>();
     if (withdraws) {
-      expect(parseState).toEqual({ state: "tested-fail" });
+      expect(parseState).toEqual({ state });
       await expectWithdrawnWithHistory(serviceId);
     } else {
       expect(parseState).toBeNull();
@@ -180,8 +181,8 @@ describe("authoritative discovery absence", () => {
     expect(batches.some((message) => message.type === "openapi-operation")).toBe(false);
   });
 
-  it.each(laterResponses)("cascades an API-catalog source after $name", async ({ status, body, withdraws }) => {
-    const serviceId = `api-catalog-authoritative-${status}`;
+  it.each(laterResponses)("cascades an API-catalog source after $name", async ({ name, status, body, contentType, withdraws, state }) => {
+    const serviceId = `api-catalog-authoritative-${name.replace(/[^a-z0-9]+/gi,"-").toLowerCase()}`;
     const serviceUrl = `https://8.8.8.8/${serviceId}/`;
     const catalogUrl = `${serviceUrl}.well-known/api-catalog`;
     const openApiUrl = `https://8.8.8.8/${serviceId}/openapi.json`;
@@ -208,7 +209,7 @@ describe("authoritative discovery absence", () => {
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       const requested = input instanceof Request ? input.url : input.toString();
       if (requested !== catalogUrl) throw new Error(`unexpected fetch: ${requested}`);
-      return new Response(body, { status, headers: { "Content-Type": "application/linkset+json" } });
+      return new Response(body, { status, headers: { "Content-Type": contentType } });
     });
     await env.DB.prepare("DELETE FROM origin_rate_limits WHERE origin=?").bind(new URL(catalogUrl).origin).run();
     await processCrawlMessage(bindings, next);
@@ -219,7 +220,7 @@ describe("authoritative discovery absence", () => {
       .bind(serviceId)
       .first<{ state: string }>();
     if (withdraws) {
-      expect(parseState).toEqual({ state: "tested-fail" });
+      expect(parseState).toEqual({ state });
       await expectWithdrawnWithHistory(serviceId);
       expect(
         await env.DB.prepare("SELECT active FROM crawl_target_sources WHERE source_type='api-catalog' AND source_ref=?")

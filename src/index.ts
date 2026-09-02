@@ -49,11 +49,15 @@ async function handleGet(request:Request,env:Env,ctx:ExecutionContext):Promise<R
   }
 
   if(url.pathname==="/"){
-    const [stats,services,changes]=await Promise.all([getStats(env.DB),listServices(env.DB,{limit:8,offset:0}),listChanges(env.DB,new URL("https://mpp.ninja/api/changes?limit=8"))]);
+    const [stats,services,changes]=await Promise.all([getStats(env.DB),listServices(env.DB,{limit:8,offset:0,stage:"established"}),listChanges(env.DB,new URL("https://mpp.ninja/api/changes?limit=8"))]);
     if(url.searchParams.get("bootstrap")==="1"&&Number(stats.services??0)===0&&await acquireBootstrapLease(env.DB))ctx.waitUntil(runScheduled(env));
     return html(renderDashboard(stats,services,changes),200,head);
   }
-  if(url.pathname==="/services")return html(renderServices(await listServices(env.DB,parsePage(url)),url),200,head);
+  if(url.pathname==="/services"){
+    const pageUrl=new URL(url);
+    if(!pageUrl.searchParams.has("stage"))pageUrl.searchParams.set("stage","established");
+    return html(renderServices(await listServices(env.DB,parsePage(pageUrl)),pageUrl),200,head);
+  }
   const servicePath=url.pathname.match(/^\/services\/([^/]+)$/);
   if(servicePath){const id=safeDecodePath(servicePath[1]);if(id===null)return html(renderNotFound(),404,head);const item=await getService(env.DB,id,parseDetailPage(url));return item?html(renderServiceDetail(item),200,head):html(renderNotFound(),404,head);}
   if(url.pathname==="/implementations")return html(renderImplementations(await listImplementations(env.DB)),200,head);

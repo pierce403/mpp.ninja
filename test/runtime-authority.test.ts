@@ -143,7 +143,8 @@ describe("authoritative runtime observation clocks", () => {
         .first(),
     ).toEqual({
       state: "tested-pass",
-      evidence: "1 Payment challenge(s) observed on HTTP 402",
+      evidence:
+        "1 Payment challenge(s) observed on HTTP 402; all required fields decoded and validated",
       observed_at: "2026-08-25T03:00:00.000Z",
     });
     expect(

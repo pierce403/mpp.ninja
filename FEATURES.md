@@ -49,6 +49,36 @@ This file is the living product specification and acceptance tracker for `mpp.ni
 - At `2026-08-25T19:26:17Z`, the moving production index contained 419 published services, 2,264 active endpoints, 3,898 active offers, 1,202 D1 observations with 1,202 R2 object links, 12,470 changes, and 17 runtime-observed MPP services. The Queue had completed 1,202 targets; mpp.dev and MPPScan source barriers were safely processing at 57/141 and 400/433 services, with zero failed discovery runs, snapshots, or targets. Counts continue changing as bounded jittered work drains and the six-hour schedule runs.
 - Conservative fingerprints at that snapshot were 392 unknown, 19 custom at 0.35 confidence, and 8 mppx at 0.85 confidence. Security-property state was 7,304 not-tested, 1,681 unknown, 3,980 tested-pass, 445 tested-fail, and 1 observed; each pass/fail applies only to its named harmless check and does not establish general security or vulnerability.
 
+## Evidence semantics and discovery candidates
+
+**Stability:** in-progress
+
+### Properties
+
+- Reserves `tested-fail` for a named harmless validation that ran against content claiming the expected structure.
+- Records an absent optional OpenAPI/RFC 9727 document and a scanner-policy stop as observed evidence rather than an endpoint failure.
+- Retains bounded D1 observation summaries for terminal scanner-policy stops, including the normalized target, error code, redacted reason, and observation time.
+- Shows established services by default while keeping raw MPPScan and manual leads inspectable in an explicit discovery-candidate view.
+- Labels endpoint counts as confirmed or advertised MPP endpoints and shows harmless probe-observation coverage separately.
+
+### Dependencies
+
+- Existing D1 services, observations, security properties, discovery provenance, and change history
+- Migration `0003_evidence_semantics.sql`
+
+### Test criteria
+
+- [x] A missing optional discovery document is observed and still withdraws previously advertised child authority.
+- [x] HTML at a conventional discovery path is observed without becoming a failed validation.
+- [x] Malformed content claiming JSON remains a parser validation failure.
+- [x] A scanner-policy stop persists a redacted observation and is not counted as a failed endpoint validation.
+- [x] The default human index excludes candidate-only leads while the candidate view exposes their probe coverage.
+- [ ] Migration, deployment, and corrected live UI/API behavior are verified independently.
+
+### Evidence
+
+- On 2026-09-02, focused Worker-runtime tests covered discovery withdrawal semantics, exact challenge-validation evidence, scanner-stop persistence, candidate filtering, and UI labels. `npm run check` then passed generated-binding verification, TypeScript, all 245 tests in 27 files, and a Wrangler dry run at 283.44 KiB (61.65 KiB gzip). Production migration and publication remain pending.
+
 ## Initial Hello World deployment (superseded)
 
 **Stability:** stable
