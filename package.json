@@ -33,5 +33,6 @@
   "overrides": {
     "sharp": "0.35.5",
     "undici": "7.29.1"
-  }
+  },
+  "license": "Apache-2.0"
 }

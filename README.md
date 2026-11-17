@@ -106,3 +106,9 @@ Cloudflare deployment success, D1 migration success, queue activity, and live `h
 - Cite public advisories as prior art only. Fingerprints do not establish an exact deployed version or advisory applicability.
 
 Repository behavior and acceptance evidence are tracked in [FEATURES.md](FEATURES.md). Agent operating rules are in [AGENTS.md](AGENTS.md).
+
+## License
+
+Copyright 2026 Dean Pierce.
+
+The original code and documentation authored for this project are licensed under the [Apache License, Version 2.0](LICENSE). Third-party dependencies, quoted source material, data, fonts, media, and other third-party assets retain their respective licenses and rights; this grant does not relicense them.
